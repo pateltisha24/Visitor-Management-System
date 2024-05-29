@@ -1,0 +1,265 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: Urbanist, system-ui, Arial, Helvetica, sans-serif;
+  color-scheme: light dark;
+}
+
+:root {
+  --bg-color: #f4f3ff;
+  --btn-color: #646cff;
+  --dark-color: #242424;
+  --helper-color: #99b9ff;
+}
+
+html {
+  font-size: 62.5%;
+}
+
+body {
+  margin: 0;
+  min-width: 32rem;
+  min-height: 100vh;
+  background-color: var(--dark-color);
+  color: #fff;
+}
+
+h1 {
+  font-size: 5.4rem; /* Use rem for consistency */
+  line-height: 1.1;
+  font-weight: bold;
+}
+p {
+  font-size: 1.8rem;
+  line-height: 1.56;
+  letter-spacing: 0.1rem;
+  word-spacing: 0.06rem;
+}
+textarea {
+  font-size: 1.8rem;
+  line-height: 1.56;
+  letter-spacing: 0.1rem;
+  word-spacing: 0.06rem;
+}
+
+a {
+  font-weight: 500;
+  font-size: 2rem;
+  letter-spacing: 0.15rem;
+  color: var(--btn-color);
+  text-decoration: inherit;
+}
+
+li {
+  list-style: none;
+}
+
+/* Layout rules */
+.container {
+  max-width: 140rem; /* Corrected max-width */
+  padding: 4rem 2.4rem;
+  margin: 0 auto;
+}
+.grid{
+  display: grid;
+  gap:6.4rem;
+}
+
+.grid-two-cols{
+  grid-template-columns: repeat(2,1fr);
+}
+.grid-four-cols{
+  grid-template-columns: repeat(4,1fr);
+}
+.navbar {
+  position: fixed;
+  top: 0;
+  width: 100%;
+  background-color: var(--dark-color);
+  z-index: 1000;
+  padding: 1.5rem 3rem; /* Added padding for better spacing */
+}
+
+.navbar .container {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.navbar .logo {
+  font-size: 2.8rem;
+  font-weight: bold;
+  color: var(--btn-color);
+}
+
+.navbar nav ul {
+  display: flex;
+  gap: 3rem;
+}
+
+.navbar nav ul li a {
+  color: #fff;
+  text-decoration: none;
+  padding: 1.5rem;
+}
+
+.navbar nav ul li a.active,
+.navbar nav ul li a:hover {
+  color: var(--btn-color);
+}
+
+/* Hero Section */
+.section-hero {
+  display: grid;
+  
+  
+  & .grid{
+    align-items: center;
+    
+
+  }
+  /* grid-template-columns: repeat(2, 1fr); */
+  
+  
+
+}
+.hero-content {
+  padding: 2rem;
+}
+.hero-content h1 {
+  margin-bottom: 2.4rem;
+}
+.hero-content p {
+  margin: 2.4rem 0 4.8rem 0;
+  /* font-size: 25pt; */
+}
+
+.hero-content p:first-child {
+  margin: 0 0 1.2rem 0;
+  font-size: 25pt;
+}
+
+button {
+  text-transform: capitalize;
+  padding: 1rem 2.2rem;
+  font-size: 1.8rem;
+  font-weight: 500;
+  background-color: var(--btn-color);
+  border-radius: 0.8rem;
+  border: 0.1rem solid transparent;
+  cursor: pointer;
+  letter-spacing: 0.2rem;
+  transition: border-color 0.3s;
+  
+}
+
+.primary-btn {
+  margin-right: 1.2rem;
+
+}
+
+.secondary-btn {
+  background-color: transparent;
+  box-shadow: inset 0 0 0 0.2rem var(--btn-color);
+  margin: 3.2rem ;
+}
+
+button:hover {
+  box-shadow: inset 0 0 0 0.2rem var(--bg-color);
+}
+
+a:hover,
+a.active {
+  color: #534bf2;
+}
+
+.hero-image {
+  display: flex;
+  justify-content: center;
+}
+
+.hero-image img {
+  width: 100%;
+  height: auto;
+}
+/* section analytics */
+
+.section-analytics{
+  margin: 9.6rem 0;
+
+}
+
+.section-analytics .container{
+background-color: var(--bg-color);
+border-radius: 1rem;
+}
+.section-analytics .grid{
+  color: var(--dark-color);
+}
+
+.section-analytics .div1{
+  text-align: center;
+  border-right: 0.2rem solid var(--dark-color);
+  &:last-child{
+    border: none;
+  }
+  & h2{
+    font-size: 4.8rem;
+  }
+  & p{
+    text-transform: capitalize;
+  }
+}
+
+.section-contact{
+  padding: 3.2rem;
+  & .contact-content{
+    padding: 0 ;
+
+    & h1{
+      margin-bottom: 3.2rem;
+    }
+  }
+ & .container{
+  padding-top: 3.2rem;
+ } 
+ & .contact-img{
+  display: flex;
+  justify-content: start;
+  align-items: center;
+  & img{
+    width: 100%;
+    height: auto;
+  }
+ }
+ & .section-form{
+  & form{
+    display: flex;
+    flex-direction: column;
+    gap: 2.6rem;
+    border: 1px solid #ddd;
+  padding: 2rem; 
+
+  }
+  & label{
+    display: block;
+    margin-bottom: 1.2rem;
+    text-transform: capitalize;
+  }
+  & input , textarea{
+    width: 80%;
+    border: 1px solid #ccc;
+  border-radius: 4px;
+  padding: 0.8rem;
+    padding: 0.4rem 0.6rem;
+  }
+ }
+}
+.section-form button {
+  
+  border: none;
+  padding: 0.8rem 1.6rem;
+  border-radius: 4px;
+  cursor: pointer;
+}
