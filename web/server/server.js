@@ -16,7 +16,7 @@ const port = process.env.PORT || 5000;
 
 // CORS configuration
 const corOptions = {
-    origin: 'http://localhost:5173',
+    origin: 'https://client-lb8szvan7-nishas-projects-db23472b.vercel.app',
     methods: 'GET, POST, PUT, DELETE, PATCH, HEAD',
     credentials: true,
 };
