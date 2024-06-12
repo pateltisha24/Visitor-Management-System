@@ -46,6 +46,10 @@ app.get('/api/data', async (req, res) => {
     }
 });
 
+ app.get('/', (req, res) => {
+        res.send("Hello from the server side");
+    });
+
 // Error handling middleware
 app.use(errorMiddleware);
 
