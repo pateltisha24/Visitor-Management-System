@@ -16,7 +16,7 @@ const port = process.env.PORT || 5000;
 
 // CORS configuration
 const corOptions = {
-    origin: 'https://server-zeta-beige.vercel.app/',
+    origin: 'https://client-five-orcin.vercel.app/',
     methods: 'GET, POST, PUT, DELETE, PATCH, HEAD',
     credentials: true,
 };
@@ -45,7 +45,7 @@ app.get('/api/data', async (req, res) => {
     }
 });
 
- app.get('/api/', (req, res) => {
+ app.get('/', (req, res) => {
         res.send("Hello from the server side");
     });
 

@@ -1,39 +1,3 @@
-
-// import { defineConfig } from 'vite';
-// import react from '@vitejs/plugin-react';
-
-// export default defineConfig({
-//   plugins: [react()],
-//   resolve: {
-//     alias: {
-//       '@': '/src',
-//     },
-//   },
-// });
-// import { defineConfig } from 'vite';
-// import react from '@vitejs/plugin-react';
-// import vue from '@vitejs/plugin-vue';
-
-// export default defineConfig({
-//   plugins: [
-//     react(),
-//     vue(),
-//   ],
-//   resolve: {
-//     alias: {
-//       '@': '/src',
-//     },
-//   },
-//   server: {
-//     proxy: {
-//       '/api': {
-//         target: 'http://localhost:5000',
-//         changeOrigin: true,
-//         rewrite: (path) => path.replace(/^\/api/, ''),
-//       },
-//     },
-//   },
-// });
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
@@ -49,7 +13,7 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': {
-        target: process.env.NODE_ENV === 'production' ? 'client-five-orcin.vercel.app' : 'http://localhost:5000',
+        target: process.env.NODE_ENV === 'https://server-zeta-beige.vercel.app/' ? 'client-five-orcin.vercel.app' : 'http://localhost:5000',
         changeOrigin: true,
         
       },
