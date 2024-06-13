@@ -16,7 +16,7 @@ const port = process.env.PORT || 5000;
 
 // CORS configuration
 const corOptions = {
-    origin: 'https://client-lb8szvan7-nishas-projects-db23472b.vercel.app',
+    origin: 'https://client-kzytrjlsv-nishas-projects-db23472b.vercel.app',
     methods: 'GET, POST, PUT, DELETE, PATCH, HEAD',
     credentials: true,
 };

@@ -13,7 +13,7 @@ function Header({OpenSidebar}) {
             {/* <BsSearch  className='icon'/> */}
         </div>
         <div className='header-center'>
-            <h1>DASHBOARD</h1>
+            <h2>DASHBOARD</h2>
         </div>
         <div className='header-right'>
             <BsFillBellFill className='icon'/>

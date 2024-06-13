@@ -10,7 +10,7 @@ from datetime import datetime
 from collections import defaultdict, Counter
 
 #database
-client=pymongo.MongoClient("mongodb://localhost:27017/")
+client=pymongo.MongoClient("mongodb+srv://nisha:face@vsr.hkuuj.mongodb.net/?retryWrites=true&w=majority&appName=vsr")
 print(client)
 db=client['vsr']
 collection=db['client1']
@@ -18,13 +18,16 @@ collection=db['client1']
 
 counter_collection = db['counters']
 def initialize_counter(sequence_name):
+    if counter_collection.find_one({'_id': sequence_name}):
+        print(f"Counter '{sequence_name}' already initialized")
+        return
     counter_collection.insert_one({
         '_id': sequence_name,
         'sequence_value': 0
     })
 
 #Uncomment the line below to initialize the counter (run once)
-#initialize_counter('your_collection_id')
+initialize_counter('your_collection_id')
 
 def get_next_sequence_value(sequence_name):
     result = counter_collection.find_one_and_update(

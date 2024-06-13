@@ -6,6 +6,7 @@ const defaultConactFormData = {
   
 };
 export const Contact = () => {
+  const { storeTokenInLS } = useAuth();
   const [contact, setContact] = useState(
    {
     username: "",
@@ -121,6 +122,7 @@ export const Contact = () => {
                   type="text"
                   name="username"
                   id="username"
+                  placeholder="username"
                   autoComplete="off"
                   value={contact.username}
                   onChange={handleInput}
@@ -134,6 +136,7 @@ export const Contact = () => {
                   type="email"
                   name="email"
                   id="email"
+                  placeholder="email"
                   autoComplete="off"
                   value={contact.email}
                   onChange={handleInput}
@@ -147,6 +150,7 @@ export const Contact = () => {
                   name="message"
                   id="message"
                   autoComplete="off"
+                  placeholder="type your message here"
                   value={contact.message}
                   onChange={handleInput}
                   required
@@ -156,7 +160,7 @@ export const Contact = () => {
               </div>
 
               <div>
-                <button type="submit">submit</button>
+                <button type="submit" className="contactbutton">submit</button>
               </div>
             </form>
           </section>

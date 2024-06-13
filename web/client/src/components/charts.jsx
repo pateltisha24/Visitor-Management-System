@@ -88,8 +88,8 @@ const Charts = ({ data, ageGenderData, emotionData, emotionOverTimeData, selecte
             <h3>GENDER RATIO</h3>
             <BsFillGrid3X3GapFill className='card_icon' />
           </div>
-          <h2>Male:{malePercentage}% <br />
-            Female:{femalePercentage}%</h2>
+          <h2>Male: {malePercentage}% <br />
+            Female: {femalePercentage}%</h2>
         </div>
         <div className='card'>
           <div className='card-inner'>
@@ -102,26 +102,27 @@ const Charts = ({ data, ageGenderData, emotionData, emotionOverTimeData, selecte
 
       <div className='chart1'>
         <h3>GENDER DISTRIBUTION BAR CHART</h3>
-        <p>Shows the count of male and female participants in a bar chart format recorded for {selectedDate}.</p>
-        <ResponsiveContainer width="100%" height={400}>
+        <p>Shows the count of male and female participants in a bar chart format recorded for {selectedDate}.</p><br /><br />
+        <ResponsiveContainer width="100%" height={500}>
           <BarChart
             data={ageGenderData}
             margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
           >
             <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="Age" />
-            <YAxis />
+            <XAxis dataKey="Age" tick={{ fontSize: 20 }} />
+            <YAxis tick={{ fontSize: 20 }} label={{ value: 'Count', angle: -90, position: 'insideLeft', dy: -10, fontSize: 16 }} />
             <Tooltip />
-            <Legend />
+            <Legend wrapperStyle={{ margin: '0 auto', textAlign: 'center' }} />
             <Bar dataKey="male" fill="#8884d8" />
             <Bar dataKey="female" fill="#82ca9d" />
           </BarChart>
         </ResponsiveContainer>
       </div>
 
-      <br /><br /><br /><br /><br /><br /><br />
+
+      <br /><br /><br /><br /><br /><br /><br /><br /><br /><br />
       <div className='charts'>
-        <ResponsiveContainer width="100%" height={300}>
+        <ResponsiveContainer width="100%" height={400}>
           <h3>OVERALL EMOTION</h3>
           <p>Displays the distribution of different emotions (e.g., happy, sad, neutral)</p>
           <PieChart>
@@ -143,9 +144,9 @@ const Charts = ({ data, ageGenderData, emotionData, emotionOverTimeData, selecte
             <Legend />
           </PieChart>
         </ResponsiveContainer>
-        <ResponsiveContainer width="100%" height={300}>
+        <ResponsiveContainer width="100%" height={400}>
           <h3>GROUP/INDIVIDUAL COUNTS</h3>
-          <p>The doughnut chart displays the distribution of participants between groups and individuals.</p>
+          <p>The chart displays the distribution of participants between groups and individuals.</p>
           <PieChart>
             <Pie
               data={[
@@ -174,68 +175,47 @@ const Charts = ({ data, ageGenderData, emotionData, emotionOverTimeData, selecte
         </ResponsiveContainer>
       </div>
 
-      <br /><br /><br /><br /><br /><br /><br /><br /><br />
-      <h3>AGE AND EMOTION </h3>
-      <p>A heatmap showing the relationship between age and emotion using different colors.</p><br /><br />
-      <ResponsiveContainer width="98%" height={300}>
-        <div className="heatmap-container">
-          <HeatMap
-            xLabels={emotions}
-            yLabels={ageGroups}
-            data={heatmapData.map(item => emotions.map(emotion => item[emotion]))}
-            xLabelWidth={60}
-            yLabelWidth={120}
-            square
-            cellStyle={(background, value, min, max) => ({
-              background: `rgb(0, 151, 230, ${1 - (max - value) / (max - min)})`,
-              fontSize: '20px',
-              color: '#d1d1dc',
-              lineHeight: '50px',
-              textAlign: 'center',
-              width: '50px',
-              height: '50px',
-              border: '1px dashed #9e9ea4',
-            })}
-            cellRender={value => value}
-          />
-        </div>
-      </ResponsiveContainer>
-
-      {/* <div className='chart3'>
-        <h3>AGE AND EMOTION</h3>
-        <p>A stacked bar chart showing the relationship between age and emotion.</p>
-        <ResponsiveContainer width="100%" height={400}>
-          <BarChart
-            data={formattedHeatmapData}
-            margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
-            barSize={100}
-          >
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="Age" />
-            <YAxis />
-            <Tooltip />
-            <Legend />
-            <Bar dataKey="happy" stackId="a" fill="#8884d8" />
-            <Bar dataKey="sad" stackId="a" fill="#82ca9d" />
-            <Bar dataKey="neutral" stackId="a" fill="#ffc658" />
-            <Bar dataKey="surprise" stackId="a" fill="#FF4081" />
-            <Bar dataKey="fear" stackId="a" fill="#AA00FF" />
-            <Bar dataKey="anxiety" stackId="a" fill="#FFBB28" />
-            <Bar dataKey="disgust" stackId="a" fill="#0088FE" />
-          </BarChart>
+      <br /><br />
+      <div className='chart3'>
+        <h3>AGE AND EMOTION </h3>
+        <p>A heatmap showing the relationship between age and emotion using different colors.</p><br /><br />
+        <ResponsiveContainer width="98%" height={300}>
+          <div className="heatmap-container">
+            <HeatMap
+              xLabels={emotions}
+              yLabels={ageGroups}
+              data={heatmapData.map(item => emotions.map(emotion => item[emotion]))}
+              xLabelWidth={60}
+              yLabelWidth={120}
+              square
+              cellStyle={(background, value, min, max) => ({
+                background: `rgb(0, 151, 230, ${1 - (max - value) / (max - min)})`,
+                fontSize: '20px',
+                color: '#d1d1dc',
+                lineHeight: '50px',
+                textAlign: 'center',
+                width: '50px',
+                height: '50px',
+                border: '1px dashed #9e9ea4',
+              })}
+              cellRender={value => value}
+              
+            />
+          </div>
         </ResponsiveContainer>
-      </div> */}
+      </div>
+      
 
-      <br /><br /><br /><br /><br /><br /><br /><br />
+      <br /><br /><br /><br /><br /><br /><br /><br /><br /><br /><br /><br /><br /><br /><br /><br /><br /><br />
 
       <div className='line-chart'>
         <h3>EMOTIONS OVER TIME</h3>
-        <p>Shows the emotions recorded over different hours of the selected day.</p>
-        <ResponsiveContainer width="100%" height={450}>
+        <p>Shows the emotions recorded over different hours of the selected day.</p><br /><br />
+        <ResponsiveContainer width="100%" height={600}>
           <LineChart data={emotionOverTimeData}>
             <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="time" label={{ value: 'Time (Hours)', position: 'insideBottomRight', offset: -5 }} />
-            <YAxis label={{ value: 'Emotion Count', angle: -90, position: 'insideLeft' }} />
+            <XAxis dataKey="time"  label={{ value: 'Time (Hours)', position: 'insideBottomRight', offset: -5, style: { fontSize: '20px' } }} tick={{ fontSize: '18px' }} />
+            <YAxis label={{ value: 'Emotion Count', angle: -90, position: 'insideLeft', style: { fontSize: '20px' } }} tick={{ fontSize: '18px' }} />
             <Tooltip />
             <Legend />
             {emotions.map(emotion => (

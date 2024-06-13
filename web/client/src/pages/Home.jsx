@@ -8,25 +8,24 @@ export const Home = () =>{
             <section className="section-hero">
                 <div className="container grid grid-two-cols">
                     <div className="hero-content">
-                        <p>we are the world Best IT Company </p>
-                        <h1>Welcome to our Company</h1>
+                        <p>Welcome to our Cutting-Edge Visitor Recognition and Analytics System</p>
+                        <h1>Unlock Insights with Facial Recognition and Advanced Analytics</h1>
                         <p>
-                            Are you ready to take your business to the next level with cutting-edge IT solution ?
-                            Look no further!With three idiors,We specialize in providing innovative IT services 
-                            and solutions tailored to meet your unique needs.
+                            Are you ready to take your business to the next level with cutting-edge IT solutions?
+                            Look no further! With our advanced technology, we specialize in providing innovative and comprehensive analysis of facial features including age, gender, emotion tailoring your needs and enabling you to understand your visitors on deeper level.
                         </p>
                         <div className="btn btn-group">
                             <a href="/contact">
-                                <button className="btn">connect now</button>
+                                <button className="btn">Connect Now</button>
                             </a>
                             <a href="/service">
-                                <button className="btn secondary-btn">learn more</button>
+                                <button className="btn secondary-btn">Learn More</button>
                             </a>
                         </div>
                     </div>
                    
                 <div className="hero-image">
-                    <img src="/images/new.jpg" alt="home images" width="500" heigth="500" />
+                    <img src="/images/new.jpg" alt="home images"  />
                 </div>
                 </div>
                 
@@ -39,29 +38,29 @@ export const Home = () =>{
         <section className="section-hero">
                 <div className="container grid grid-two-cols">
                 <div className="hero-image">
-                    <img src="/images/new.jpg" alt="home images" width="800" heigth="800" />
+                    <img src="/images/new.jpg" alt="home images"  />
                 </div>
                     <div className="hero-content">
                    
-                        <p>we are here to help you </p>
-                        <h1>Get Started Today</h1>
+                        <p>Unlock the Power of Data</p>
+                        <h1>Analyze, Visualize, and Optimize</h1>
                         <p>
-                            Are you ready to take your business to the next level with cutting-edge IT solution ?
-                            Look no further!With three idiors,We specialize in providing innovative IT services 
-                            and solutions tailored to meet your unique needs.
+                            With our advanced analytics platform, we help you make data-driven decisions. 
+                            Analyze captured data with intuitive charts and graphs, enabling you to understand visitor behavior, trends, and preferences better.
                         </p>
                         <div className="btn btn-group">
                             <a href="/contact">
-                                <button className="btn">connect now</button>
+                                <button className="btn">Connect Now</button>
                             </a>
                             <a href="/services">
-                                <button className="btn secondary-btn">learn more</button>
+                                <button className="btn secondary-btn">Learn More</button>
                             </a>
                         </div>
                     </div>
                    
                 
                 </div>
+                <br /><br /><br /><br />
                 
             </section>
         </>

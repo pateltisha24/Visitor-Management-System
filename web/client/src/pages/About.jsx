@@ -2,56 +2,60 @@ import { NavLink } from "react-router-dom";
 import { Analytics } from "../components/Analytics";
 import '../index.css';
 
-export const About = () =>{
-    return (
-        <>
-        <main>
-            <section className="section-hero">
-                <div className="container grid grid-two-cols">
-                    <div className="hero-content">
-                        <p>We care to cure your Health</p>
-                        <h1>Why Choose Us?</h1>
-                        <p>
-                        Expertise: Our team consists of experienced IT professionals who
-                        are passionate about staying up-to-date with the latest industry
-                        trends.
-                        </p>
-                        <p>
-                        Customization: We understand that every business is unique.
-                Thats why we create solutions that are tailored to your specific
-                needs and goals.
-
-                        </p>
-                        <p>
-                Customer-Centric Approach: We prioritize your satisfaction and
-                provide top-notch support to address your IT concerns.
+export const About = () => {
+  return (
+    <>
+      <main>
+        <section className="section-hero">
+          <div className="container grid grid-two-cols">
+            <div className="hero-content">
+              <p>Welcome to our Cutting-Edge Visitor Recognition and Analytics System</p>
+              <h1>Why Choose Us?</h1>
+             
+              <p>
+                <b>Customization:</b> Recognizing the uniqueness of each business,
+                our system is tailored to suit your specific requirements,
+                offering customizable features and functionalities.
               </p>
               <p>
-                Affordability: We offer competitive pricing without compromising
-                on the quality of our services.
+                <b>Customer-Centric Approach:</b> Your satisfaction is our top
+                priority. We provide exceptional support to address any
+                queries or concerns, ensuring a seamless experience.
               </p>
               <p>
-                Reliability: Count on us to be there when you need us. We're
-                committed to ensuring your IT environment is reliable and
-                available 24/7.
-              </p>                       
+                <b>Data Security: </b>Rest assured, your data is safeguarded through
+                robust encryption methods, ensuring the confidentiality and
+                integrity of your sensitive information.
+              </p>
+              <p>
+                <b>Accurate Insights:</b> Benefit from precise analysis of visitor
+                demographics, including age, gender, and emotions, enabling
+                you to understand your audience better and tailor your
+                services accordingly.
+              </p>
+              <p>
+                <b>Intuitive Dashboard:</b> Our system offers comprehensive
+                visualization tools, presenting captured data in easy-to-
+                interpret charts and graphs, empowering you to make informed
+                decisions.
+              </p>
+            
               <div className="btn btn-group">
                 <NavLink to="/contact">
                   <button className="btn"> Connect Now</button>
                 </NavLink>
-                <button className="btn secondary-btn">learn more</button>
+                <button className="btn secondary-btn">Learn More</button>
               </div>
-            </div>        
-                <div className="hero-image">
-                    <img src="/images/big.jpg" alt="home images" width="400" heigth="200" />
-                </div>
-                </div>
-                
-            </section>
-        </main>
+            </div>
+            <div className="hero-image">
+              <img src="/images/big.jpg" alt="home images"  />
+            </div>
+          </div>
+        </section>
+      </main>
 
-        {/* second section */}
-         <Analytics/>
-        </>
-    );
+      {/* second section */}
+      <Analytics />
+    </>
+  );
 };
