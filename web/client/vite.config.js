@@ -51,7 +51,7 @@ export default defineConfig({
       '/api': {
         target: process.env.NODE_ENV === 'production' ? 'myclient-origin.vercel.app' : 'http://localhost:5000',
         changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api/, ''),
+        
       },
     },
   },
