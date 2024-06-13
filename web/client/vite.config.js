@@ -45,7 +45,7 @@ export default defineConfig({
     proxy: {
       '/api': {
         target: process.env.NODE_ENV === 'production'
-          ? 'https://server-zeta-beige.vercel.app/'
+          ? 'https://server-zeta-beige.vercel.app'
           : 'http://localhost:5000',
         changeOrigin: true,
       },
