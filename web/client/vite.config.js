@@ -49,7 +49,7 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': {
-        target: process.env.NODE_ENV === 'production' ? 'https://client-kzytrjlsv-nishas-projects-db23472b.vercel.app' : 'http://localhost:5000',
+        target: 'https://client-kzytrjlsv-nishas-projects-db23472b.vercel.app',
         changeOrigin: true,
       },
     },
