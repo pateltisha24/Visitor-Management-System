@@ -45,7 +45,7 @@ app.get('/api/data', async (req, res) => {
     }
 });
 
- app.get('/api/', (req, res) => {
+ app.get('/', (req, res) => {
         res.send("Hello from the server side");
     });
 
