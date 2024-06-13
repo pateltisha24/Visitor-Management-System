@@ -13,7 +13,7 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': {
-        target: imoort.meta.env.NODE_ENV === 'production' ? 'https://server-zeta-beige.vercel.app/'' : 'http://localhost:5000',
+        target: import.meta.env.NODE_ENV === 'production' ? 'https://server-zeta-beige.vercel.app/'' : 'http://localhost:5000',
         changeOrigin: true,
         
       },
