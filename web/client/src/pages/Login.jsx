@@ -35,7 +35,7 @@ export const Login = () =>{
      body: JSON.stringify(user),
     });
     const res_data = await response.json();
-    console.log("login form ",response); 
+    // console.log("login form ",response); 
     if(response.ok){
 
         
@@ -55,7 +55,7 @@ export const Login = () =>{
     } catch (error) {
         console.log(error);
     }
-    console.log(user);
+    // console.log(user);
     
    };
 

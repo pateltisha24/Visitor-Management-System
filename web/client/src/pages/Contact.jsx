@@ -82,7 +82,7 @@ export const Contact = () => {
   
       if (response.ok) {
         const c_data = await response.json();
-        console.log("res from server", c_data);
+        // console.log("res from server", c_data);
         // Assuming `storeTokenInLS` and `navigate` are defined elsewhere
         storeTokenInLS(c_data.token);
         setContact({
