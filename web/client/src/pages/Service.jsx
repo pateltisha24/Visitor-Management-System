@@ -3,7 +3,7 @@ import axios from 'axios';
 import Header from '../components/Header.jsx';
 import Sidebar from '../components/Sidebar.jsx';
 import Charts from '../components/charts.jsx';
-import '../charts.css';
+import '../index.css';
 
 export const Service = () => {
   const [openSidebarToggle, setOpenSidebarToggle] = useState(false);
