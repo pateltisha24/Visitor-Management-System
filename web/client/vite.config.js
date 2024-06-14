@@ -8,6 +8,7 @@ export default defineConfig({
     proxy:{
       '^/api': {
         target: 'https://server-zeta-beige.vercel.app/',
+        secure : true,
         changeOrigin: true,
       },
     }
