@@ -16,8 +16,8 @@ export default defineConfig({
     proxy: {
       '/api': {
         target: process.env.NODE_ENV === 'production'
-          ? process.env.VITE_API_URL_PRODUCTION
-          : process.env.VITE_API_URL_DEVELOPMENT,
+          ? import.meta.env.VITE_API_URL_PRODUCTION
+          : import.meta.env.VITE_API_URL_DEVELOPMENT,
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api/, ''),
       },
