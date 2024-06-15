@@ -4,6 +4,7 @@
   box-sizing: border-box;
   font-family: Urbanist, system-ui, Avenir, Helvetica, Arial, sans-serif;
   color-scheme: light dark;
+  
 }
 
 :root {
@@ -11,6 +12,7 @@
   --btn-color: #646cff;
   --dark-color: #242424;
   --helper-color: #99b9ff;
+  --bg-dark: #000000;
 }
 
 html {

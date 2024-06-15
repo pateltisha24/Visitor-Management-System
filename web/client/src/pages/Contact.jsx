@@ -71,7 +71,7 @@ export const Contact = () => {
     e.preventDefault();
   
     try {
-      const response = await fetch("/api/form/contact", {
+      const response = await fetch("https://server-zeta-beige.vercel.app/api/form/contact", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
