@@ -26,28 +26,28 @@ ul {
 }
 
 .logo-brand a {
-    text-decoration: none;
+  
     color: var(--text-color); /* Example placeholder for text color */
     margin-left: 1rem; /* Adjust as needed for spacing */
 }
 
-nav ul {
+/* nav ul {
     display: flex;
     align-items: center; /* Aligns items vertically */
-}
+/* } */
 
-nav ul li {
+/* nav ul li {
     list-style: none;
-}
+} */
 
-nav ul li a {
+/* nav ul li a {
     text-decoration: none;
     color: var(--text-color); /* Example placeholder for text color */
-    font-size: 1.6rem;
+    /* font-size: 1.6rem;
     font-weight: bold;
     transition: color 0.3s ease;
-}
+}  */
 
 nav ul li a:hover {
     color: var(--accent-color); /* Example placeholder for hover color */
-}
+ }  

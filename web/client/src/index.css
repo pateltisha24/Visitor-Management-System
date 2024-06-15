@@ -27,7 +27,7 @@ body {
   min-height: 100vh;
 }
 
- /*?  Help me reach 1 Million subs 👉 https://youtube.com/thapatechnical */
+
 
 h1 {
   font-size: 5.4rem;
@@ -52,7 +52,7 @@ a {
   font-size: 1.8rem;
   letter-spacing: 0.1rem;
   color: var(--btn-color);
-  text-decoration: inherit;
+  text-decoration: none;
 }
 
 li {
@@ -214,14 +214,7 @@ button {
 .section-contact {
   & .contact-content {
     padding: 0;
-
-   & h1 {
-      position: relative;
-      /* text-decoration: none; Remove default underline */
-      margin-bottom: 3.2rem;
-      /* text-decoration: underline; */
-    /* text-decoration-color:  #646cff; */
-    }
+   
     
     
   }
@@ -246,6 +239,8 @@ button {
     display: flex;
     flex-direction: column;
     gap: 2.2rem;
+    
+    text-decoration: none;
     & form {
       display: flex;
       flex-direction: column;
@@ -271,7 +266,7 @@ button {
 
 .section-registration {
   padding-top: 0 3.2rem;
-
+  
   & .container {
     display: flex;
     flex-direction: row;
@@ -301,12 +296,14 @@ button {
     display: flex;
     flex-direction: column;
     gap: 2.2rem;
-
+    
+      
+    
     & h1 {
-      /* text-decoration: underline; */
-    /* text-decoration-color:  #646cff; */
-      margin-bottom: 1.6rem;
-    }
+       margin-bottom: 1.6rem;
+       margin-bottom: 1.6rem; /* Or any other styles you want */
+      text-decoration: none; /* Remove underline */
+    }  
 
     & form {
       display: flex;
@@ -453,7 +450,6 @@ a.active {
 .content .btns a {
   display: inline-block;
   margin: 0 10px;
-  text-decoration: none;
   border: 2px solid var(--btn-color);
   color: var(--btn-color);
   font-weight: 500;
@@ -520,7 +516,8 @@ a.active {
   box-shadow: 0 6px 7px -3px rgba(0, 0, 0, 0.35);
 }
 .header-center{
-  font-size: 22px;
+  /* font-size: 22px; */
+  font-size: 2.2rem; 
 }
 .menu-icon {
   display: none;
@@ -575,7 +572,7 @@ a.active {
 }
 
 .sidebar-list-item > a {
-  text-decoration: none;
+
   color: #9e9ea4;
 }
 
@@ -774,4 +771,70 @@ a.active {
 
 .logo{
   height: 10%;
+}
+/* about us boxes */
+/* Flip box container */
+.flip-box {
+  background-color: transparent;
+  width: 300px;
+  height: 300px;
+  
+  perspective: 1000px;
+  margin: 5px;
+   border-radius: 30px; 
+   /* Adjust the radius as needed */  
+  /* border-top-left-radius: 30%;
+      border-bottom-right-radius: 30%; */
+  overflow: hidden;
+ 
+}
+
+.flip-box-inner {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  text-align: center;
+  transition: transform 0.6s;
+  transform-style: preserve-3d;
+  box-shadow: 0 4px 8px 0 rgba(0,0,0,0.2);
+  
+}
+
+.flip-box:hover .flip-box-inner {
+  transform: rotateY(180deg);
+}
+
+.flip-box-front, .flip-box-back {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  backface-visibility: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.flip-box-front {
+  background-color:#646cff;
+  color: black ;
+  font-size: 4rem  !important;
+  /* font-size: 70px; Increase font size */
+  font-weight: bold; /* Make text bold */
+  text-transform: capitalize; 
+}
+
+.flip-box-back {
+  background-color:white;
+  color:black;
+  font-size: 18px; /* Increase font size */
+ 
+  transform: rotateY(180deg);
+}
+
+.flip-box-container {
+  display: flex;
+  justify-content:center;
+  flex-wrap: wrap;
+  gap: 50px; /* Use gap to control spacing between boxes */
+  margin: 0 auto; /* Center the container within the wrapper */
 }

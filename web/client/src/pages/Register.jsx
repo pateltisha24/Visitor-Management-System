@@ -30,7 +30,7 @@ export const Register = () =>{
     e.preventDefault();
     console.log(user);
     try {
-      const response = await fetch("https://server-zeta-beige.vercel.app/api/auth/register",{
+      const response = await fetch(" http://localhost:5000/api/auth/register",{
      method :"POST",
      headers :{
         "Content-Type":"application/json",
@@ -66,7 +66,7 @@ export const Register = () =>{
             <div className="section-registration">
                 <div className="container grid gird-two-cols">
                     <div className="registration-image">
-                        <img src ="/images/res.png" 
+                        <img src ="/images/res.jpg" 
                         alt="a girl is trying to do registration"
                         width="400" height="500" 
                         />
