@@ -49,9 +49,9 @@
     flex-direction: column; /* Make the links vertical */
 }
 
-.footer-links li {
+/* .footer-links li {
     margin-bottom: 0.5rem;
-}
+} */
 
 .footer-links a {
     color: white;
