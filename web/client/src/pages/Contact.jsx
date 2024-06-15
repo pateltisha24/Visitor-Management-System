@@ -2,9 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../store/auth";
 import '../index.css';
-const defaultConactFormData = {
-  
-};
+
 export const Contact = () => {
   const { storeTokenInLS } = useAuth();
   const [contact, setContact] = useState(
@@ -73,7 +71,7 @@ export const Contact = () => {
     e.preventDefault();
   
     try {
-      const response = await fetch("https://server-zeta-beige.vercel.app/api/form/contact", {
+      const response = await fetch("/api/form/contact", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
