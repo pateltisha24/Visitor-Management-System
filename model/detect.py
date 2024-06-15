@@ -12,9 +12,8 @@ from collections import defaultdict, Counter
 #database
 client=pymongo.MongoClient("mongodb+srv://nisha:face@vsr.hkuuj.mongodb.net/?retryWrites=true&w=majority&appName=vsr")
 print(client)
-db=client['vsr']
+db=client['test']
 collection=db['client1']
-
 
 counter_collection = db['counters']
 def initialize_counter(sequence_name):
@@ -61,16 +60,16 @@ def calculate_mode(predictions):
     return Counter(predictions).most_common(1)[0][0]
 
 # Load models
-faceProto = r"D:\cv\Gender-and-Age-Detection-master\opencv_face_detector.pbtxt"
-faceModel = r"D:\cv\Gender-and-Age-Detection-master\opencv_face_detector_uint8.pb"
-ageProto = r"D:\cv\Gender-and-Age-Detection-master\age_deploy.prototxt"
-ageModel = r"D:\cv\Gender-and-Age-Detection-master\age_net.caffemodel"
-genderProto = r"D:\cv\Gender-and-Age-Detection-master\gender_deploy.prototxt"
-genderModel = r"D:\cv\Gender-and-Age-Detection-master\gender_net.caffemodel"
-emotionModelPath = r'D:\cv\Gender-and-Age-Detection-master\model.h5'
+faceProto = r"C:\Users\patel\Gender-and-Age-Detection-master\opencv_face_detector.pbtxt"
+faceModel = r"C:\Users\patel\Gender-and-Age-Detection-master\opencv_face_detector_uint8.pb"
+ageProto = r"C:\Users\patel\Gender-and-Age-Detection-master\age_deploy.prototxt"
+ageModel = r"C:\Users\patel\Gender-and-Age-Detection-master\age_net.caffemodel"
+genderProto = r"C:\Users\patel\Gender-and-Age-Detection-master\gender_deploy.prototxt"
+genderModel = r"C:\Users\patel\Gender-and-Age-Detection-master\gender_net.caffemodel"
+emotionModelPath = r'C:\Users\patel\Gender-and-Age-Detection-master\model.h5'
 
 MODEL_MEAN_VALUES = (78.4263377603, 87.7689143744, 114.895847746)
-ageList = ['(0-4)', '(5-9)', '(10-14)', '(15-19)', '(20-24)', '(25-29)', '(30-34)', '(35-39)', '(40-44)', '(45-49)', '(50-54)', '(55-59)', '(60-64)', '(65-69)', '(70-74)', '(75-79)', '(80-84)', '(85-89)', '(90-94)', '(95-100)']
+ageList =['(0-10)', '(10-20)', '(20-30)', '(30-50)', '(50-60)', '(60-80)']
 genderList = ['Male', 'Female']
 emotionList = ['Angry', 'Disgust', 'Fear', 'Happy', 'Neutral', 'Sad', 'Surprise']
 
@@ -82,6 +81,18 @@ emotionModel = load_model(emotionModelPath)
 parser = argparse.ArgumentParser()
 parser.add_argument('--image')
 args = parser.parse_args()
+
+# Parse arguments for RTSP URL
+# parser = argparse.ArgumentParser()
+# parser.add_argument('--rtsp_url', type=str, default="rtsp://192.168.1.15:8080/h264_ulaw.sdp", help='RTSP URL for video stream')
+# args = parser.parse_args()
+# rtsp_url="rtsp://statmodeller@gmail.com:Hiren@123@camera-ip-address:554/stream1"
+
+# Open video capture
+# video = cv2.VideoCapture(args.rtsp_url)
+# if not video.isOpened():
+#     print("Error opening video stream or file")
+#     exit(1)
 
 video = cv2.VideoCapture(args.image if args.image else 0)
 padding = 20
@@ -117,21 +128,18 @@ while cv2.waitKey(1) < 0:
             agePreds = ageNet.forward()
             age_range = agePreds[0].argmax() * 5
 
-            if age_range <= 2:
-                age = 'Infant'
-            elif age_range <= 12:
-                age = 'Children'
+            if age_range <= 10:
+                age = "(0-10)"
             elif age_range <= 20:
-                age = 'Teenager'
-            elif age_range <= 35:
-                age = 'Young Adult'
-            elif age_range <= 55:
-                age = 'Adults'
-            elif age_range <= 75:
-                age = 'Middle-aged Adults'
+                age = "(10-20)"
+            elif age_range <= 30:
+                age = "(20-30)"
+            elif age_range <= 50:
+                age = "(30-50)"
+            elif age_range <= 60:
+                age = "(50-60)"
             else:
-                age = 'Elderly'
-
+                age = "(60-80)"
 
             gray = cv2.cvtColor(face, cv2.COLOR_BGR2GRAY)
             roi_gray = cv2.resize(gray, (48, 48), interpolation=cv2.INTER_AREA)
