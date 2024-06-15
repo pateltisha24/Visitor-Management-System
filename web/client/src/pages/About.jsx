@@ -112,7 +112,11 @@ export const About = () => {
       <main>
         <section className="section-hero"><br /><br /><br />
           <div className="herotop">
-          <p>Welcome to our Cutting-Edge Visitor Recognition and Analytics System</p><br />
+          
+          </div>
+          <div className="container grid grid-two-cols">
+            <div className="hero-content">
+            <p>Welcome to our Cutting-Edge Visitor Recognition and Analytics System</p><br />
           <h1>Our Mission</h1>
 
           <p>
@@ -121,10 +125,6 @@ export const About = () => {
             that not only capture age, gender, and emotional insights but also translate these data points
             into actionable strategies that propel your business forward.
           </p><br /><br /><br /><br /><br />
-          </div>
-          <div className="container grid grid-two-cols">
-            <div className="hero-content">
-
               <h1>What we offer?</h1>
               <p>
                 <b>State-of-the-Art Visitor Recognition Systems:</b>Our systems leverage the latest
