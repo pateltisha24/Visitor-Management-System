@@ -20,7 +20,7 @@ export const Service = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const response = await axios.get(`http://localhost:5000/api/data?date=${selectedDate}`);
+        const response = await axios.get(`https://server-zeta-beige.vercel.app/api/data?date=${selectedDate}`);
         setData(response.data);
 
         const ageGenderCounts = response.data.reduce((acc, curr) => {

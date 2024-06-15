@@ -88,8 +88,9 @@ const port = process.env.PORT || 5000;
 
 // CORS configuration
 const corOptions = {
-    origin: 'http://localhost:5174',
-    // 'https://client-five-orcin.vercel.app', 
+    origin:  'https://client-five-orcin.vercel.app',
+    // 'http://localhost:5174',
+    
    
 
     methods: 'GET, POST, PUT, DELETE, PATCH, HEAD',

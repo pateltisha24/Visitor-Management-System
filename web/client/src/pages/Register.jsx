@@ -30,7 +30,7 @@ export const Register = () =>{
     e.preventDefault();
     console.log(user);
     try {
-      const response = await fetch(" http://localhost:5000/api/auth/register",{
+      const response = await fetch("https://server-zeta-beige.vercel.app/api/auth/register",{
      method :"POST",
      headers :{
         "Content-Type":"application/json",
