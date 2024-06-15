@@ -116,7 +116,6 @@ export const About = () => {
           </div>
           <div className="container grid grid-two-cols">
             <div className="hero-content">
-            <p>Welcome to our Cutting-Edge Visitor Recognition and Analytics System</p><br />
           <h1>Our Mission</h1>
 
           <p>
@@ -124,21 +123,18 @@ export const About = () => {
             and enhance customer satisfaction. We are committed to developing cutting-edge technologies
             that not only capture age, gender, and emotional insights but also translate these data points
             into actionable strategies that propel your business forward.
-          </p><br /><br /><br /><br /><br />
+          </p><br /><br /><br />
               <h1>What we offer?</h1>
               <p>
                 <b>State-of-the-Art Visitor Recognition Systems:</b>Our systems leverage the latest
                 advancements in computer vision and artificial intelligence to accurately detect and
-                analyze visitor demographics and emotions. From retail stores and hospitality venues
-                to educational institutions and healthcare facilities, our solutions are tailored to meet
+                analyze visitor demographics and emotions our solutions are tailored to meet
                 the unique needs of diverse industries.
               </p>
               <p>
                 <b>Comprehensive Data Insights:</b>We go beyond traditional analytics by providing comprehensive
                 data insights that enable you to understand customer behaviour patterns, optimize operational
-                efficiency, and tailor marketing strategies. By visualizing data through intuitive charts and
-                reports, we empower you to uncover trends, make data-driven decisions, and stay ahead in a
-                competitive landscape.
+                efficiency, and tailor marketing strategies. 
               </p>
               <p>
                 <b>Customizable Solutions:</b>Every business is unique, and so are our solutions.
