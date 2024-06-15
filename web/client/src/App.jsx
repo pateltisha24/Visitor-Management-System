@@ -10,11 +10,26 @@ import {Error} from "./pages/Error";
 import { Footer } from "./components/Footer/Footer";
 import { Logout } from "./pages/Logout";
 import React from 'react';
-
+import { ToastContainer } from 'react-toastify';
 const App =() => {
   return(
    <Router>
+     
       <Navbar />
+      <ToastContainer
+     position="top-right"
+     autoClose={3000}
+     hideProgressBar={false}
+     newestOnTop={false}
+     closeOnClick
+     rtl={false}
+     pauseOnFocusLoss
+     draggable
+     pauseOnHover
+     theme="colored"
+     bodyClassName="toastBody"
+     
+     />
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/about" element={<About />} />

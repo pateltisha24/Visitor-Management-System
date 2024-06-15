@@ -12,6 +12,7 @@ export const Contact = () => {
     username: "",
     email: "",
     message: "",
+    phone:"",
 
    }
   );
@@ -89,6 +90,7 @@ export const Contact = () => {
           username: "",
   email: "",
   message: "",
+  phone:"",
         });
         navigate("/About");
       } else {
@@ -117,7 +119,7 @@ export const Contact = () => {
           <section className="section-form">
             <form onSubmit={handleSubmit}>
               <div>
-                <label htmlFor="username">username</label>
+                <label htmlFor="username">Name</label>
                 <input
                   type="text"
                   name="username"
@@ -143,7 +145,19 @@ export const Contact = () => {
                   required
                 />
               </div>
-
+              <div>
+                <label htmlFor="phone">Contact Number</label>
+                <input
+                  type="text"
+                  name="phone"
+                  id="phone"
+                  placeholder="contact number"
+                  autoComplete="off"
+                  value={contact.phone}
+                  onChange={handleInput}
+                  required
+                />
+              </div>
               <div>
                 <label htmlFor="message">message</label>
                 <textarea
@@ -167,14 +181,15 @@ export const Contact = () => {
         </div>
 
         <section className="mb-3">
-          <iframe
-            src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3782.2613173278896!2d73.91411937501422!3d18.562253982539413!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3bc2c147b8b3a3bf%3A0x6f7fdcc8e4d6c77e!2sPhoenix%20Marketcity%20Pune!5e0!3m2!1sen!2sin!4v1697604225432!5m2!1sen!2sin"
-            width="100%"
-            height="450"
-            allowFullScreen
-            loading="lazy"
-            referrerPolicy="no-referrer-when-downgrade"
-          ></iframe>
+        <iframe src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3690.947867971304!2d73.22553957506982!3d22.317811279674!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x395fcf151fd3b007%3A0x665f3c89b51aa8a8!2sStat%20Modeller%20-%20Robust%20Kit%20of%20Solutions!5e0!3m2!1sen!2sin!4v1718382634953!5m2!1sen!2sin" 
+        width="100%" 
+        height="450"
+        
+         allowFullScreen
+         loading="lazy" 
+         referrerPolicy="no-referrer-when-downgrade">
+          
+         </iframe>
         </section>
       </section>
     </>

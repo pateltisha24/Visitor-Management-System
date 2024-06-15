@@ -1,12 +1,53 @@
-
-
-.container{
+.container1 {
     max-width: 140rem;
-    padding : 4.2rem 2.4rem;
-    display:flex;
-    justify-content:space-between;
+    padding: 4.2rem 2.4rem;
+    display: flex;
+    justify-content: space-between;
+    margin-left: 12.8%;
 }
-ul{
-    display:flex;
-    gap:3.2rem;
+
+ul {
+    display: flex;
+    gap: 3.2rem;
+}
+
+.logo img {
+    height: 8rem; /* Adjust the height as per your design */
+    width: auto; /* Ensures the width scales proportionally */
+    display: block; /* Ensures the image behaves like a block element */
+}
+
+.logo-brand {
+    font-size: 2rem;
+    font-weight: bold;
+    color: var(--text-color); /* Example placeholder for text color */
+    display: flex;
+    align-items: center; /* Aligns the text vertically with the logo */
+}
+
+.logo-brand a {
+    text-decoration: none;
+    color: var(--text-color); /* Example placeholder for text color */
+    margin-left: 1rem; /* Adjust as needed for spacing */
+}
+
+nav ul {
+    display: flex;
+    align-items: center; /* Aligns items vertically */
+}
+
+nav ul li {
+    list-style: none;
+}
+
+nav ul li a {
+    text-decoration: none;
+    color: var(--text-color); /* Example placeholder for text color */
+    font-size: 1.6rem;
+    font-weight: bold;
+    transition: color 0.3s ease;
+}
+
+nav ul li a:hover {
+    color: var(--accent-color); /* Example placeholder for hover color */
 }

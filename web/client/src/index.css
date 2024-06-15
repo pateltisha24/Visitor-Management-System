@@ -69,6 +69,10 @@ li {
 
 /*? layout Rule  */
 
+.wrapper {
+  width: 80%;
+  margin: 0 auto;
+}
 .container {
   max-width: 140rem;
   padding: 4rem 2.4rem;
@@ -141,6 +145,10 @@ button {
 
 /***** Hero Section *****/
 
+.herotop{
+   margin-left:14%;
+   margin-right: 14%;
+}
 .section-hero {
   & .grid {
     align-items: center;
@@ -211,8 +219,8 @@ button {
       position: relative;
       /* text-decoration: none; Remove default underline */
       margin-bottom: 3.2rem;
-      text-decoration: underline;
-    text-decoration-color:  #646cff;
+      /* text-decoration: underline; */
+    /* text-decoration-color:  #646cff; */
     }
     
     
@@ -225,8 +233,8 @@ button {
     justify-content: start;
     align-items: center;
     & img {
-      width: 100%;
-      min-width: 500px;
+      width: 550px;
+      min-width: 300px;
       height: auto;
       border-top-left-radius: 30%;
       border-bottom-right-radius: 30%;
@@ -295,8 +303,8 @@ button {
     gap: 2.2rem;
 
     & h1 {
-      text-decoration: underline;
-    text-decoration-color:  #646cff;
+      /* text-decoration: underline; */
+    /* text-decoration-color:  #646cff; */
       margin-bottom: 1.6rem;
     }
 
@@ -764,4 +772,6 @@ a.active {
   outline: none;
 }
 
-
+.logo{
+  height: 10%;
+}

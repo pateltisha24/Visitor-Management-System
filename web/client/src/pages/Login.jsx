@@ -2,6 +2,7 @@ import {useState} from "react";
 import {useNavigate } from "react-router-dom";
 import { useAuth } from "../store/auth";
 import { toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 import '../index.css';
 export const Login = () =>{
     const [user,setUser]=useState({
@@ -27,7 +28,7 @@ export const Login = () =>{
    const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-        const response = await fetch(`/api/auth/login`,{
+        const response = await fetch(`https://server-zeta-beige.vercel.app/api/auth/login`,{
      method :"POST",
      headers :{
         "Content-Type":"application/json",
@@ -41,12 +42,12 @@ export const Login = () =>{
         
     //   console.log("res from server",res_data);
       storeTokenInLS(res_data.token);
-        alert("successfull login");
+        // alert("successfull login");
       setUser({
       username:"",
       password:""});
       toast.success("Login successful");
-      navigate("/");
+      navigate("/service");
     }
     else{
         toast.error(res_data.extraDetails ? res_data.extraDetails : res_data.message);
@@ -71,7 +72,7 @@ export const Login = () =>{
                             />
                         </div> 
                          <div className="registration-form">
-                           <h1 className="main-heading mb-3">Login form</h1> 
+                           <h1 className="main-heading mb-3">Login</h1> 
                            <br/>
                            <form onSubmit={handleSubmit}>
                             <div>

@@ -25,7 +25,7 @@ export const Home = () =>{
                     </div>
                    
                 <div className="hero-image">
-                    <img src="/images/new.jpg" alt="home images"  />
+                    <img src="/images/new2.jpg" alt="home images"  />
                 </div>
                 </div>
                 
@@ -38,7 +38,7 @@ export const Home = () =>{
         <section className="section-hero">
                 <div className="container grid grid-two-cols">
                 <div className="hero-image">
-                    <img src="/images/new.jpg" alt="home images"  />
+                    <img src="/images/new2.jpg" alt="home images"  />
                 </div>
                     <div className="hero-content">
                    

@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../store/auth";
 import { toast } from "react-toastify";
 import '../index.css';
+import "react-toastify/dist/ReactToastify.css";
 export const Register = () =>{
     const [user,setUser]= useState({
       organisation :"",
@@ -29,7 +30,7 @@ export const Register = () =>{
     e.preventDefault();
     console.log(user);
     try {
-      const response = await fetch(`/api/auth/register`,{
+      const response = await fetch("https://server-zeta-beige.vercel.app/api/auth/register",{
      method :"POST",
      headers :{
         "Content-Type":"application/json",
@@ -71,7 +72,7 @@ export const Register = () =>{
                         />
                     </div> 
                      <div className="registration-form">
-                       <h1 className="main-heading mb-3">Registration form</h1> 
+                       <h1 className="main-heading mb-3">Registration</h1> 
                        <br/>
                        <form onSubmit={handleSubmit}>
                         <div>

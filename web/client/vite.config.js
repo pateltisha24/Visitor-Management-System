@@ -1,31 +1,48 @@
-import { defineConfig } from 'vite';
-import react from '@vitejs/plugin-react';
-import dotenv from 'dotenv';
+// import { defineConfig } from 'vite';
+// import react from '@vitejs/plugin-react';
+// import dotenv from 'dotenv';
 
-// Load environment variables from .env files
-dotenv.config();
+// // Load environment variables from .env files
+// dotenv.config();
 
+// export default defineConfig({
+//   plugins: [
+//     react(),
+//   ],
+//   define: {
+//     'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV),
+//   },
+//   server: {
+//     proxy: {
+//       '/api': {
+//         target: process.env.NODE_ENV === 'production'
+//           ? import.meta.env.VITE_API_URL_PRODUCTION
+//           : import.meta.env.VITE_API_URL_DEVELOPMENT,
+//         changeOrigin: true,
+//         rewrite: (path) => path.replace(/^\/api/, ''),
+//       },
+//     },
+//   },
+//   resolve: {
+//     alias: {
+//       '@': '/src',
+//     },
+//   },
+// });
+
+import { defineConfig } from 'vite'
+import react from '@vitejs/plugin-react'
+
+// https://vitejs.dev/config/
 export default defineConfig({
-  plugins: [
-    react(),
-  ],
-  define: {
-    'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV),
-  },
-  server: {
-    proxy: {
-      '/api': {
-        target: process.env.NODE_ENV === 'production'
-          ? import.meta.env.VITE_API_URL_PRODUCTION
-          : import.meta.env.VITE_API_URL_DEVELOPMENT,
+  plugins: [react()],
+  server:{
+    proxy:{
+      '^/api': {
+        target: 'http://localhost:5000',
+        // 'https://server-zeta-beige.vercel.app' ,
         changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api/, ''),
       },
-    },
-  },
-  resolve: {
-    alias: {
-      '@': '/src',
-    },
-  },
-});
+    }
+  }
+})
