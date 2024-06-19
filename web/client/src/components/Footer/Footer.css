@@ -1,26 +1,24 @@
 
- 
 .footer {
     padding: 5.2rem;
     background-color: var(--btn-color);
+    ;
     color: white;
     font-size: 1rem;
     display: flex;
     justify-content: space-between;
-    align-items: flex-start;
+    align-items: flex-start
 }
 
 .footer-column {
     flex: 1;
     margin-right: 2rem;
 }
-
 .footer-column h2 {
     color: white;
     font-size: 2.4rem;
     margin-bottom: 1rem;
 }
-
 .footer-column h3 {
     color: white;
     font-size: 1.8rem;
@@ -37,36 +35,20 @@
     margin-bottom: 0.5rem;
 }
 
+
 .footer-links {
     list-style: none;
     padding: 0;
-    display: flex;
-    flex-direction: column; /* Make the links vertical */
-    align-items: center; /* Align items to center horizontally */
 }
 
 .footer-links li {
     margin-bottom: 0.5rem;
-    position: relative; /* Position relative for absolute positioning of lines */
-}
-
-.footer-links li::before {
-    content: '';
-    position: absolute;
-    left: -1.6rem; /* Adjust as needed */
-    top: 50%; /* Position lines vertically centered */
-    transform: translateY(-50%);
-    height: 100%; /* Full height of the list item */
-    width: 0.2rem; /* Width of the vertical line */
-    background-color: white; /* Color of the vertical line */
 }
 
 .footer-links a {
     color: white;
     text-decoration: none;
     transition: color 0.3s ease;
-    position: relative; /* Ensure links are in front of lines */
-    padding-left: 1rem; /* Space between line and text */
 }
 
 .footer-links a:hover {
