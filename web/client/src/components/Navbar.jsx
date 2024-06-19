@@ -11,7 +11,9 @@ export const Navbar = () => {
       <header>
         <div className="container1">
           <div className="logo">
+          <NavLink to="/">
             <img src="/images/facesense_logonew.png" alt="" />
+            </NavLink>
           </div>
          
           <nav>
