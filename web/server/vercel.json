@@ -1,21 +1,11 @@
 {
-  "version": 2,
-  "builds": [
-    {
-      "src": "server.js",
-      "use": "@vercel/node"
-    }
-  ],
-  "routes": [
-    {
-      "src": "/(.*)",
-      "dest": "/server.js"
-    }
+  "installCommand": "npm install && cd ../client && npm install",
+  "buildCommand": "cd ../client && npm run build && rm -rf ../server/public && cp -r dist ../server/public",
+  "rewrites": [
+    { "source": "/api/(.*)", "destination": "/api" },
+    { "source": "/((?!api/|assets/|.*\\..*).*)", "destination": "/index.html" }
   ],
   "crons": [
-    {
-      "path": "/api/cron/rollup",
-      "schedule": "0 1 * * *"
-    }
+    { "path": "/api/cron/rollup", "schedule": "0 1 * * *" }
   ]
 }

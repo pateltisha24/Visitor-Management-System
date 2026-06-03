@@ -1,4 +1,5 @@
 require('dotenv').config();
+const path = require('path');
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
@@ -69,8 +70,16 @@ app.use('/api', ingestRoute);
 app.use('/api', insightsRoute);
 app.use('/api', cronRoute);
 
-app.get('/', (req, res) => {
-    res.send('FaceSense API is running');
+// Serve the built React client (copied into ./public at build time) so the API
+// and the SPA are one deployment on a single origin.
+const publicDir = path.join(__dirname, 'public');
+app.use(express.static(publicDir));
+
+// SPA fallback: any non-/api GET that isn't a static file returns index.html.
+app.get(/^(?!\/api).*/, (req, res, next) => {
+    res.sendFile(path.join(publicDir, 'index.html'), (err) => {
+        if (err) next();
+    });
 });
 
 // Error handling middleware (must be last)
