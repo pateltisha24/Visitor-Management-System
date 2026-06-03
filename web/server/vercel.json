@@ -1,6 +1,6 @@
 {
-  "installCommand": "npm install && cd ../client && npm install",
-  "buildCommand": "cd ../client && npm run build && rm -rf ../server/public && cp -r dist ../server/public",
+  "installCommand": "npm install",
+  "buildCommand": "cd ../client && npm install && npm run build && rm -rf ../server/public && cp -r dist ../server/public",
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api" },
     { "source": "/((?!api/|assets/|.*\\..*).*)", "destination": "/index.html" }
