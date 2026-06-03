@@ -50,6 +50,7 @@ function reading(id, day, hour, minute, second, opts = {}) {
     Emotion: pick(opts.negative ? EMO_NEGATIVE : EMO_NORMAL),
     Gi: gi,
     Gi_count: gi === "group" ? randInt(2, 5) : 1,
+    sample: true, // seeded demo data — hidden from real users unless opted in
   };
 }
 

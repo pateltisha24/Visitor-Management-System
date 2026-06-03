@@ -11,11 +11,14 @@ const client1Schema = new mongoose.Schema({
   Emotion: String,
   Gi: String,
   Gi_count: Number,
+  // Marks seeded demo data. Real readings (from the CV pipeline / ingest) omit
+  // this; the API only returns sample data when explicitly requested.
+  sample: { type: Boolean, default: false },
 });
 
-// Index Date so range filtering stays fast as the collection grows.
+// Index Date (+ sample) so range filtering stays fast as the collection grows.
 // (The default _id index already serves the recent-readings sort.)
-client1Schema.index({ Date: 1 });
+client1Schema.index({ sample: 1, Date: 1 });
 
 // Timestamp index. If RETENTION_DAYS is set, make it a TTL index so raw readings
 // auto-expire (keeps storage bounded on the free tier; run the cron rollup first

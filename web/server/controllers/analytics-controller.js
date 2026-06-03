@@ -18,6 +18,8 @@ function buildFilter(query) {
     if (emotion) filter.Emotion = emotion;
     if (gi) filter.Gi = gi;
     if (age) filter.Age = age;
+    // Seeded demo data is hidden unless explicitly requested via ?sample=true.
+    filter.sample = query.sample === "true" ? true : { $ne: true };
     return filter;
 }
 
@@ -45,7 +47,8 @@ const getRecent = async (req, res) => {
 // Distinct dates that have data, for populating the date picker.
 const getDates = async (req, res) => {
     try {
-        const dates = await Client1.distinct("Date");
+        const sampleFilter = { sample: req.query.sample === "true" ? true : { $ne: true } };
+        const dates = await Client1.distinct("Date", sampleFilter);
         res.json(dates.filter(Boolean).sort());
     } catch (err) {
         res.status(500).json({ message: err.message });

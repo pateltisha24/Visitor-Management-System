@@ -15,7 +15,7 @@ const GI_OPTS = [{ v: "", l: "All" }, { v: "individual", l: "Solo" }, { v: "grou
 const GENDER_OPTS = [{ v: "", l: "All" }, { v: "Female", l: "Female" }, { v: "Male", l: "Male" }];
 
 export const Service = () => {
-  const { user, isOffline } = useAuth();
+  const { user, isDemo, isOffline } = useAuth();
   const [preset, setPreset] = useState("7d");
   const [filters, setFilters] = useState({ gender: "", gi: "" });
   const [summary, setSummary] = useState(null);
@@ -24,9 +24,14 @@ export const Service = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [live, setLive] = useState(true);
-  const [sample, setSample] = useState(isOffline);
+  // Sample (seeded demo) data is opt-in for real users and on by default for the demo.
+  const [sample, setSample] = useState(isDemo || isOffline);
   const [lastUpdated, setLastUpdated] = useState(null);
   const timer = useRef(null);
+  const reqId = useRef(0);   // guards against out-of-order responses
+
+  // Default to sample mode once we know this is the demo account.
+  useEffect(() => { if (isDemo) setSample(true); }, [isDemo]);
 
   const queryString = useCallback((range, extra = {}) => {
     const p = new URLSearchParams();
@@ -34,13 +39,16 @@ export const Service = () => {
     if (range?.to) p.set("to", range.to);
     if (filters.gender) p.set("gender", filters.gender);
     if (filters.gi) p.set("gi", filters.gi);
+    if (sample) p.set("sample", "true");   // request the seeded demo data
     Object.entries(extra).forEach(([k, v]) => v != null && p.set(k, v));
     const s = p.toString();
     return s ? `?${s}` : "";
-  }, [filters]);
+  }, [filters, sample]);
 
   const fetchAll = useCallback(async () => {
-    if (sample) {
+    const myId = ++reqId.current;
+    // Offline fallback (API unreachable): use bundled static sample data.
+    if (isOffline) {
       setSummary(sampleSummary); setPrev(samplePrevSummary); setRecent(sampleRecent);
       setLoading(false); setError(false); setLastUpdated(new Date());
       return;
@@ -53,31 +61,32 @@ export const Service = () => {
         api.get(`/api/analytics/recent${queryString(range, { limit: 10 })}`),
         prevR ? api.get(`/api/analytics/summary${queryString(prevR)}`) : Promise.resolve(null),
       ]);
+      if (myId !== reqId.current) return; // a newer request superseded this one
       setSummary(sumRes.data);
       setRecent(recentRes.data || []);
       setPrev(prevRes ? prevRes.data : null);
       setError(false); setLastUpdated(new Date());
     } catch {
-      setError(true);
+      if (myId === reqId.current) setError(true);
     } finally {
-      setLoading(false);
+      if (myId === reqId.current) setLoading(false);
     }
-  }, [sample, preset, queryString]);
+  }, [isOffline, preset, queryString]);
 
   useEffect(() => { setLoading(true); fetchAll(); }, [fetchAll]);
 
   useEffect(() => {
     clearInterval(timer.current);
-    if (live && !sample) timer.current = setInterval(fetchAll, POLL_MS);
+    if (live && !sample && !isOffline) timer.current = setInterval(fetchAll, POLL_MS);
     return () => clearInterval(timer.current);
-  }, [live, sample, fetchAll]);
+  }, [live, sample, isOffline, fetchAll]);
 
   const exportCsv = async () => {
     try {
-      if (sample) return downloadCSV(sampleRecent, "facesense-sample.csv");
+      if (isOffline) return downloadCSV(sampleRecent, "facesense-sample.csv");
       const range = presetRange(preset);
       const res = await api.get(`/api/data${queryString(range)}`);
-      downloadCSV(res.data, `facesense-${preset}.csv`);
+      downloadCSV(res.data, `facesense-${sample ? "sample" : preset}.csv`);
     } catch {
       /* surfaced via empty file guard */
     }
@@ -115,9 +124,9 @@ export const Service = () => {
         <div className="mt-5 flex flex-wrap items-center gap-2">
           <Segmented options={RANGE_PRESETS.map((r) => ({ v: r.key, l: r.label }))} value={preset} onChange={setPreset} />
           <span className="mx-1 hidden h-5 w-px bg-border sm:block" />
-          <Segmented options={GENDER_OPTS} value={filters.gender} onChange={(v) => setFilters((f) => ({ ...f, gender: v }))} disabled={sample} />
-          <Segmented options={GI_OPTS} value={filters.gi} onChange={(v) => setFilters((f) => ({ ...f, gi: v }))} disabled={sample} />
-          {sample && <span className="text-xs text-muted-foreground">Filters apply to live data</span>}
+          <Segmented options={GENDER_OPTS} value={filters.gender} onChange={(v) => setFilters((f) => ({ ...f, gender: v }))} />
+          <Segmented options={GI_OPTS} value={filters.gi} onChange={(v) => setFilters((f) => ({ ...f, gi: v }))} />
+          {sample && <span className="text-xs font-medium text-primary">Viewing sample data</span>}
         </div>
 
         {/* Body */}

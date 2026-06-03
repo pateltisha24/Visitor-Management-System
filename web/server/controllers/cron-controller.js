@@ -22,7 +22,7 @@ const rollup = async (req, res) => {
     }
     try {
         const date = req.query.date || yesterday();
-        const match = { Date: date };
+        const match = { Date: date, sample: { $ne: true } };
         const [total, genderAgg, emotionAgg, giAgg, ageAgg] = await Promise.all([
             Client1.countDocuments(match),
             Client1.aggregate([{ $match: match }, { $group: { _id: "$Gender", count: { $sum: 1 } } }]),
