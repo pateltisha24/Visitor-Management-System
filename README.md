@@ -78,9 +78,9 @@ CV layer never calls the web server directly (though it *can* push over HTTP; se
 - `**model/**` — Python CV pipeline. OpenCV SSD face detector + a centroid tracker, with
 age/gender/emotion analysis via **DeepFace** (modern pretrained models) or a lightweight
 legacy OpenCV/Keras engine. **Runs on the machine attached to the camera** — not on Vercel.
-- `**web/server/`** — Node/Express + Mongoose API: JWT/bcrypt auth, analytics aggregation,
+- `**server/`** — Node/Express + Mongoose API: JWT/bcrypt auth, analytics aggregation,
 BYOK AI, contact form, machine-to-machine ingestion, and a scheduled rollup endpoint.
-- `**web/client/**` — React + Vite dashboard (Recharts), Tailwind + a shadcn-style token
+- `**client/**` — React + Vite dashboard (Recharts), Tailwind + a shadcn-style token
 theme, Framer Motion. Deployable to Vercel.
 
 **Data flow:** the CV pipeline writes aggregated readings to the `client1` collection (directly,
@@ -112,7 +112,7 @@ model/          Python CV pipeline
   selftest.py       offline self-check
   requirements.txt
 
-web/server/     Express API
+server/     Express API
   controllers/  auth, analytics, ingest, insights (AI), cron, contact
   router/        route definitions
   middlewares/   auth (JWT), api-key, validate (zod), error
@@ -120,7 +120,7 @@ web/server/     Express API
   validators/    zod schemas
   utils/         db, crypto (encrypts BYOK keys)
 
-web/client/     React + Vite dashboard
+client/     React + Vite dashboard
   src/pages/        Home, About, Contact, Privacy, Login, Register, Logout,
                     Service (dashboard), Settings, Connect, Error
   src/components/   Navbar, Footer, ui/ (button, card, input, badge, theme-toggle),
@@ -161,19 +161,19 @@ age/gender/emotion analysis runs only every Nth frame and only until each tracke
 enough samples — keeping the live frame rate high (25+ FPS on typical hardware) while every
 visitor still gets analysed. Each unique visitor is written **once** (the modal prediction).
 
-### 3. Backend (`web/server/`)
+### 3. Backend (`server/`)
 
 ```bash
-cd web/server
+cd server
 npm install
 cp .env.example .env          # set MONGODB_URI, JWT_SECRET_KEY (+ GROQ_API_KEY for AI)
 npm run dev                   # http://localhost:5050  (5000 clashes with macOS AirPlay)
 ```
 
-### 4. Frontend (`web/client/`)
+### 4. Frontend (`client/`)
 
 ```bash
-cd web/client
+cd client
 npm install
 cp .env.example .env.development   # set VITE_API_URL=http://localhost:5050
 npm run dev                        # http://localhost:5173
@@ -183,7 +183,7 @@ See **[SETUP.md](SETUP.md)** for creating a Groq key and wiring Google OAuth.
 
 ## Environment variables
 
-**Server (`web/server/.env`)**
+**Server (`server/.env`)**
 
 
 | Var              | Purpose                                                   |
@@ -199,7 +199,7 @@ See **[SETUP.md](SETUP.md)** for creating a Groq key and wiring Google OAuth.
 | `CRON_SECRET`    | Auth for the Vercel Cron rollup endpoint                  |
 
 
-**Client (`web/client/.env.`*)** — `VITE_API_URL` (backend base URL).
+**Client (`client/.env.`*)** — `VITE_API_URL` (backend base URL).
 
 **CV pipeline (`model/.env`)** — `MONGODB_URI`, `RTSP_URL`, and optional tuning
 (`VMS_ENGINE`, `VMS_ANALYZE_EVERY`, `VMS_STORAGE`, `VMS_INGEST_URL`, `VMS_INGEST_API_KEY`).
@@ -228,8 +228,8 @@ as GDPR. See the in-app `/privacy` page.
 ## Testing
 
 ```bash
-cd web/client && npm test     # vitest — analytics helpers (ranges, deltas, insights, anomalies)
-cd web/server && npm test     # node:test — validators, crypto, api-key middleware
+cd client && npm test     # vitest — analytics helpers (ranges, deltas, insights, anomalies)
+cd server && npm test     # node:test — validators, crypto, api-key middleware
 ```
 
 ## Goals & scope

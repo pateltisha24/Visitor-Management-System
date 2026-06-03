@@ -27,4 +27,4 @@ Thumbs.db
 .vscode/
 
 # Built client copied into the server for single-project deploy
-web/server/public/
+server/public/

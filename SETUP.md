@@ -10,7 +10,7 @@ Groq is the zero-cost default.
 1. Go to **https://console.groq.com** and sign in.
 2. **API Keys → Create API Key**, copy it.
 3. On the **server**, set `GROQ_API_KEY=<key>` (and `AI_ENC_SECRET=<any long random string>`
-   used to encrypt users' own keys at rest). Locally in `web/server/.env`; on Vercel in the
+   used to encrypt users' own keys at rest). Locally in `server/.env`; on Vercel in the
    project's Environment Variables.
 4. Done — AI summaries now work out of the box. A default model is preset
    (`llama-3.3-70b-versatile`); users can override provider/model/key in **Settings → AI insights**.
