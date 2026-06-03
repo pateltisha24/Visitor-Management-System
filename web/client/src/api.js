@@ -1,8 +1,11 @@
 import axios from "axios";
 
-// Single source of truth for the backend base URL. Set VITE_API_URL per
-// environment (.env.development / .env.production / Vercel env vars).
-export const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5050";
+// Single source of truth for the backend base URL.
+// - If VITE_API_URL is set, use it (two-project / separate-API deploys).
+// - Otherwise default to same-origin "" in production (single Vercel project,
+//   API served at /api on the same domain) and localhost in dev.
+export const API_URL =
+  import.meta.env.VITE_API_URL ?? (import.meta.env.DEV ? "http://localhost:5050" : "");
 
 // Axios instance that attaches the JWT (from localStorage) to every request.
 export const api = axios.create({ baseURL: API_URL });
