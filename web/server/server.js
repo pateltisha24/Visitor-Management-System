@@ -1,147 +1,93 @@
-// require('dotenv').config();
-// const express = require('express');
-// const cors = require('cors');
-// const mongoose = require('mongoose');
-// const cookieParser = require('cookie-parser');
-// const bodyParser = require('body-parser');
-
-// const authRoute = require('./router/auth-router');
-// const contactRoute = require('./router/contact-router');
-// const Client1 = require('./models/client1');
-// const connectDb = require('./utils/db');
-// const errorMiddleware = require('./middlewares/error-middleware');
-
-// const app = express();
-// const port = process.env.PORT || 5000;
-
-// // CORS configuration
-// const corOptions = {
-//     origin: 'https://client-five-orcin.vercel.app',
-//     methods: 'GET, POST, PUT, DELETE, PATCH, HEAD',
-//     credentials: true,
-// };
-// // Middleware setup
-// app.use(bodyParser.json());
-// app.use(cors(corOptions));
-// app.use(express.json());
-// app.use(cookieParser());
-
-// // Routes
-// app.use('/api/auth', authRoute);
-// app.use('/api/form', contactRoute);
-
-// // Charts data endpoint
-// app.get('/api/data', async (req, res) => {
-//     try {
-//         const { date } = req.query;
-//         let filter = {};
-//         if (date) {
-//             filter = { Date: date };
-//         }
-//         const data = await Client1.find(filter);
-//         res.json(data);
-//     } catch (err) {
-//         res.status(500).json({ message: err.message });
-//     }
-// });
-
-//  app.get('/', (req, res) => {
-//         res.send("Hello from the server side");
-//     });
-
-// // Error handling middleware
-// app.use(errorMiddleware);
-
-// // Connect to the database and start the server
-// connectDb().then(() => {
-//     app.listen(port, () => {
-//         console.log(`Server is running at port: ${port}`);
-//     });
-// }).catch((error) => {
-//     console.error('Failed to connect to the database:', error.message);
-// });
-
-// // Additional MongoDB connection error handling
-// mongoose.connection.on('connected', () => {
-//     console.log('MongoDB connected successfully');
-// });
-// mongoose.connection.on('error', (err) => {
-//     console.error(`MongoDB connection error: ${err.message}`);
-// });
-// module.exports = app;
-
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
 const mongoose = require('mongoose');
 const cookieParser = require('cookie-parser');
-const bodyParser = require('body-parser');
 
 const authRoute = require('./router/auth-router');
 const contactRoute = require('./router/contact-router');
-const Client1 = require('./models/client1');
+const analyticsRoute = require('./router/analytics-router');
+const ingestRoute = require('./router/ingest-router');
+const insightsRoute = require('./router/insights-router');
+const cronRoute = require('./router/cron-router');
 const connectDb = require('./utils/db');
 const errorMiddleware = require('./middlewares/error-middleware');
 
 const app = express();
 const port = process.env.PORT || 5000;
 
-// CORS configuration
-const corOptions = {
-    origin:  'https://client-five-orcin.vercel.app',
-    // 'http://localhost:5174',
-    
-   
+// Behind Vercel's proxy, trust X-Forwarded-* so rate-limiting sees real IPs.
+app.set('trust proxy', 1);
 
-    methods: 'GET, POST, PUT, DELETE, PATCH, HEAD',
-    credentials: true,
+// Secure HTTP headers. Allow cross-origin resource use since the client is on a
+// different origin and this is a JSON API.
+app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
+
+// CORS: allow the configured client origin(s) plus local dev. Auth is sent via
+// the Authorization header (not cookies), so credentials are not required.
+// Set CLIENT_URL to a comma-separated list of allowed origins in production.
+const allowedOrigins = (process.env.CLIENT_URL || '')
+    .split(',')
+    .map((o) => o.trim())
+    .filter(Boolean)
+    .concat(['http://localhost:5173', 'http://localhost:5174']);
+
+const isLocalhost = (origin) => /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin);
+
+const corsOptions = {
+    origin: (origin, callback) => {
+        // Allow non-browser clients (no origin), any whitelisted origin, and any
+        // localhost port (dev convenience, regardless of which port Vite picks).
+        if (!origin || allowedOrigins.includes(origin) || isLocalhost(origin)) return callback(null, true);
+        // If no CLIENT_URL is configured, fall back to allowing all.
+        if (!process.env.CLIENT_URL) return callback(null, true);
+        // Reject without throwing (no 500 on preflight; browser just blocks it).
+        return callback(null, false);
+    },
+    methods: 'GET,POST,PUT,DELETE,PATCH,HEAD,OPTIONS',
+    allowedHeaders: ['Content-Type', 'Authorization', 'x-api-key'],
 };
-// Middleware setup
-app.use(bodyParser.json());
-app.use(cors(corOptions));
-app.use(express.json());
+
+app.use(cors(corsOptions));
+app.use(express.json({ limit: '256kb' }));
 app.use(cookieParser());
 
-// Routes
-app.use('/api/auth', authRoute);
-app.use('/api/form', contactRoute);
+// Rate limiting. Note: on serverless the in-memory store is per-instance; a
+// shared store (e.g. Mongo/Upstash) would be needed for strict global limits.
+const apiLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 300, standardHeaders: true, legacyHeaders: false });
+const authLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 50, standardHeaders: true, legacyHeaders: false, message: { message: "Too many attempts, please try again later." } });
 
-// Charts data endpoint
-app.get('/api/data', async (req, res) => {
-    try {
-        const { date } = req.query;
-        let filter = {};
-        if (date) {
-            filter = { Date: date };
-        }
-        const data = await Client1.find(filter);
-        res.json(data);
-    } catch (err) {
-        res.status(500).json({ message: err.message });
-    }
+app.use('/api', apiLimiter);
+
+// Routes (stricter limiter on auth to slow brute-force).
+app.use('/api/auth', authLimiter, authRoute);
+app.use('/api/form', contactRoute);
+app.use('/api', analyticsRoute);
+app.use('/api', ingestRoute);
+app.use('/api', insightsRoute);
+app.use('/api', cronRoute);
+
+app.get('/', (req, res) => {
+    res.send('FaceSense API is running');
 });
 
- app.get('/', (req, res) => {
-        res.send("Hello from the server side");
-    });
-
-// Error handling middleware
+// Error handling middleware (must be last)
 app.use(errorMiddleware);
 
-// Connect to the database and start the server
-connectDb().then(() => {
-    app.listen(port, () => {
-        console.log(`Server is running at port: ${port}`);
-    });
-}).catch((error) => {
-    console.error('Failed to connect to the database:', error.message);
-});
+// MongoDB connection logging
+mongoose.connection.on('connected', () => console.log('MongoDB connected successfully'));
+mongoose.connection.on('error', (err) => console.error(`MongoDB connection error: ${err.message}`));
 
-// Additional MongoDB connection error handling
-mongoose.connection.on('connected', () => {
-    console.log('MongoDB connected successfully');
-});
-mongoose.connection.on('error', (err) => {
-    console.error(`MongoDB connection error: ${err.message}`);
-});
+// Start the server locally. On Vercel the exported app is used instead.
+if (require.main === module) {
+    connectDb().then(() => {
+        app.listen(port, () => console.log(`Server is running at port: ${port}`));
+    });
+} else {
+    // Serverless (Vercel): establish the DB connection on cold start.
+    connectDb();
+}
+
 module.exports = app;

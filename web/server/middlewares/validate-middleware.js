@@ -7,17 +7,9 @@ const validate=(schema)=> async (req,res,next)=>{
     catch (err) {
         const status=422;
         const message="Fill the input details properly";
-        const extraDetails=err.errors[0].message;
+        const extraDetails=err?.errors?.[0]?.message || err.message || "Invalid input";
 
-        const error={
-            status,
-            message,
-            extraDetails,
-        };
-
-        console.log(error);
-        //res.status(400).json({msg:message});
-        next(error);
+        next({ status, message, extraDetails });
     }
 
 };

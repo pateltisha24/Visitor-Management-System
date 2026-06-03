@@ -1,195 +1,105 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useAuth } from "../store/auth";
-import '../index.css';
+import { apiFetch } from "../api";
+import { toast } from "react-toastify";
+import { FiArrowRight, FiPhone, FiMail } from "react-icons/fi";
+import { Button } from "../components/ui/button";
+import { Input, Textarea, Label } from "../components/ui/input";
+import { Badge } from "../components/ui/badge";
+import { Card } from "../components/ui/card";
 
 export const Contact = () => {
-  const { storeTokenInLS } = useAuth();
-  const [contact, setContact] = useState(
-   {
-    username: "",
-    email: "",
-    message: "",
-    phone:"",
-
-   }
-  );
+  const [contact, setContact] = useState({ username: "", email: "", message: "", phone: "" });
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
-  //  const [userData ,setUserData]=useState(true);
-  //  const {user} = useAuth();
 
-  //  if(userData && user){
-  //   setContact({
-  //     username:user.username,
-  //     email: user.email,
-  //     message:"",
-  //   });
-  //   userData(false);j
-  //  }
-  // lets tackle our handleInput
-  const handleInput = (e) => {
-    const name = e.target.name;
-    const value = e.target.value;
+  const handleInput = (e) => setContact({ ...contact, [e.target.name]: e.target.value });
 
-    setContact({
-      ...contact,
-      [name]: value,
-    });
-  };
-
-  // // handle fomr getFormSubmissionInfo
-  // const handleSubmit = async (e) => {
-  //   e.preventDefault();
-
-  //   console.log(contact);
-  //   try {
-  //     const response = await fetch(`http://localhost:5000/api/form/contact`,{
-  //    method :"POST",
-  //    headers :{
-  //       "Content-Type":"application/json",
-  //    },
-  //    body: JSON.stringify(contact),
-  //   });
-    
-  //   if(response.ok){
-  //     const res_data = await response.json();
-  //     console.log("res from server",res_data);
-  //     storeTokenInLS(res_data.token);
-  //     setContact({ defaultConactFormData});
-
-  //     navigate("/");
-  //     const result = await response.json();
-  //   console.log(result);
-  //   console.log(response);
-  //   }
-    
-  //   } catch (error) {
-  //     console.log("contact" , error);
-  //   }
-  // };
   const handleSubmit = async (e) => {
     e.preventDefault();
-  
+    setLoading(true);
     try {
-      const response = await fetch("https://server-zeta-beige.vercel.app/api/form/contact", {
+      const response = await apiFetch("/api/form/contact", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
         body: JSON.stringify(contact),
       });
-  
       if (response.ok) {
-        const c_data = await response.json();
-        // console.log("res from server", c_data);
-        // Assuming `storeTokenInLS` and `navigate` are defined elsewhere
-        storeTokenInLS(c_data.token);
-        setContact({
-          username: "",
-  email: "",
-  message: "",
-  phone:"",
-        });
-        navigate("/About");
+        setContact({ username: "", email: "", message: "", phone: "" });
+        toast.success("Message sent — we'll be in touch");
+        navigate("/about");
       } else {
-        // Handle non-successful response (e.g., server error)
-        console.error("Server error:", response.statusText);
+        toast.error("Message could not be sent. Please try again.");
       }
     } catch (error) {
-      console.error("Error:", error);
+      toast.error("Something went wrong. Please try again.");
+    } finally {
+      setLoading(false);
     }
   };
-  
+
+  const channels = [
+    { icon: FiPhone, label: "Phone", value: "+1 (857) 399-5023" },
+    { icon: FiMail, label: "Email", value: "pateltisha24@gmail.com" },
+  ];
 
   return (
-    <>
-      <section className="section-contact">
-        <div className="contact-content container">
-          <h1 className="main-heading">Contact Us</h1>
-        </div>
-        {/* contact page main  */}
-        <div className="container grid grid-two-cols">
-          <div className="contact-img">
-            <img src="/images/ava.jpg" alt="we are always ready to help" />
-          </div>
+    <main className="container py-16">
+      <div className="max-w-2xl">
+        <Badge>Contact</Badge>
+        <h1 className="mt-4 text-balance font-display text-4xl font-bold tracking-tight sm:text-5xl">
+          Let's talk about your space
+        </h1>
+        <p className="mt-4 text-lg text-muted-foreground">
+          Questions about deployment, cameras or insights? Send a note and the team will get back to you.
+        </p>
+      </div>
 
-          {/* contact form content actual  */}
-          <section className="section-form">
-            <form onSubmit={handleSubmit}>
+      <div className="mt-12 grid gap-8 lg:grid-cols-[1fr_1.1fr]">
+        <div className="space-y-4">
+          {channels.map((c) => (
+            <Card key={c.label} className="flex items-center gap-4 p-5">
+              <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary">
+                <c.icon size={18} />
+              </span>
               <div>
-                <label htmlFor="username">Name</label>
-                <input
-                  type="text"
-                  name="username"
-                  id="username"
-                  placeholder="username"
-                  autoComplete="off"
-                  value={contact.username}
-                  onChange={handleInput}
-                  required
-                />
+                <div className="text-xs uppercase tracking-widest text-muted-foreground">{c.label}</div>
+                <div className="font-medium">{c.value}</div>
               </div>
-
-              <div>
-                <label htmlFor="email">email</label>
-                <input
-                  type="email"
-                  name="email"
-                  id="email"
-                  placeholder="email"
-                  autoComplete="off"
-                  value={contact.email}
-                  onChange={handleInput}
-                  required
-                />
-              </div>
-              <div>
-                <label htmlFor="phone">Contact Number</label>
-                <input
-                  type="text"
-                  name="phone"
-                  id="phone"
-                  placeholder="contact number"
-                  autoComplete="off"
-                  value={contact.phone}
-                  onChange={handleInput}
-                  required
-                />
-              </div>
-              <div>
-                <label htmlFor="message">message</label>
-                <textarea
-                  name="message"
-                  id="message"
-                  autoComplete="off"
-                  placeholder="type your message here"
-                  value={contact.message}
-                  onChange={handleInput}
-                  required
-                  cols="30"
-                  rows="6"
-                ></textarea>
-              </div>
-
-              <div>
-                <button type="submit" className="contactbutton">submit</button>
-              </div>
-            </form>
-          </section>
+            </Card>
+          ))}
+          <Card className="p-6">
+            <p className="text-sm leading-relaxed text-muted-foreground">
+              Prefer email? Drop us a line and we'll reply within one business day with next steps for your space.
+            </p>
+          </Card>
         </div>
 
-        <section className="mb-3">
-        <iframe src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3690.947867971304!2d73.22553957506982!3d22.317811279674!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x395fcf151fd3b007%3A0x665f3c89b51aa8a8!2sStat%20Modeller%20-%20Robust%20Kit%20of%20Solutions!5e0!3m2!1sen!2sin!4v1718382634953!5m2!1sen!2sin" 
-        width="100%" 
-        height="450"
-        
-         allowFullScreen
-         loading="lazy" 
-         referrerPolicy="no-referrer-when-downgrade">
-          
-         </iframe>
-        </section>
-      </section>
-    </>
+        <Card className="p-7 sm:p-8">
+          <form onSubmit={handleSubmit} className="space-y-5">
+            <div className="grid gap-5 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="username">Name</Label>
+                <Input id="username" name="username" placeholder="Your name" required value={contact.username} onChange={handleInput} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="phone">Phone</Label>
+                <Input id="phone" name="phone" placeholder="Contact number" required value={contact.phone} onChange={handleInput} />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="email">Email</Label>
+              <Input id="email" name="email" type="email" placeholder="you@company.com" required value={contact.email} onChange={handleInput} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="message">Message</Label>
+              <Textarea id="message" name="message" placeholder="Tell us about your space and what you'd like to measure…" required value={contact.message} onChange={handleInput} />
+            </div>
+            <Button type="submit" size="lg" className="w-full" disabled={loading}>
+              {loading ? "Sending…" : <>Send message <FiArrowRight /></>}
+            </Button>
+          </form>
+        </Card>
+      </div>
+    </main>
   );
 };

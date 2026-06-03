@@ -5,22 +5,30 @@ const jwt=require("jsonwebtoken");
 const userSchema=new mongoose.Schema({
     organisation:{
         type:String,
-        require: true,
-    },
-
-    username:{
-        type:String,
-        require: true,
+        required: true,
     },
 
     email:{
         type:String,
-        require: true,
+        required: true,
+        unique: true,
     },
 
     password:{
         type:String,
-        require: true,
+        required: true,
+    },
+
+    timezone:{
+        type:String,
+        default: "UTC",
+    },
+
+    // Bring-your-own-key AI config. The key is stored encrypted (never returned).
+    ai:{
+        provider:{ type:String, default:"" },
+        model:{ type:String, default:"" },
+        keyEnc:{ type:String, default:"" },
     },
 
     isAdmin:{

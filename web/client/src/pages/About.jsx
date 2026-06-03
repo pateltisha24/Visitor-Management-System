@@ -1,241 +1,101 @@
-// import { NavLink } from "react-router-dom";
-// import { Analytics } from "../components/Analytics";
-// import '../index.css';
-
-// export const About = () => {
-//   return (
-//     <>
-//       <main>
-//         <section className="section-hero"><br /><br /><br />
-//           <div className="herotop">
-//           <p>Welcome to our Cutting-Edge Visitor Recognition and Analytics System</p><br />
-//           <h1>Our Mission</h1>
-
-//           <p>
-//             Our mission is to revolutionize how businesses harness visitor data to drive growth
-//             and enhance customer satisfaction. We are committed to developing cutting-edge technologies
-//             that not only capture age, gender, and emotional insights but also translate these data points
-//             into actionable strategies that propel your business forward.
-
-//           </p><br /><br /><br /><br /><br />
-//           </div>
-//           <div className="container grid grid-two-cols">
-//             <div className="hero-content">
-
-//               <h1>What we offer?</h1>
-//               <p>
-//                 <b>State-of-the-Art Visitor Recognition Systems:</b>Our systems leverage the latest
-//                 advancements in computer vision and artificial intelligence to accurately detect and
-//                 analyze visitor demographics and emotions. From retail stores and hospitality venues
-//                 to educational institutions and healthcare facilities, our solutions are tailored to meet
-//                 the unique needs of diverse industries.
-
-//               </p>
-//               <p>
-//                 <b>Comprehensive Data Insights:</b>We go beyond traditional analytics by providing comprehensive
-//                 data insights that enable you to understand customer behaviour patterns, optimize operational
-//                 efficiency, and tailor marketing strategies. By visualizing data through intuitive charts and
-//                 reports, we empower you to uncover trends, make data-driven decisions, and stay ahead in a
-//                 competitive landscape.
-
-//               </p>
-//               <p>
-//                 <b>Customizable Solutions:</b>Every business is unique, and so are our solutions.
-//                 Whether you need to enhance customer engagement, improve service delivery,
-//                 or enhance security protocols, our customizable systems are designed to adapt and scale
-//                 according to your specific requirements.
-
-//               </p>
-//             </div>
-//             <div className="hero-image">
-//               <img src="/images/big.jpg" alt="home images" />
-//             </div>
-//           </div>
-          
-//           <div className="container grid grid-two-cols">
-//             <div className="hero-image">
-//               <img src="/images/abuuu.jpg" alt="home images" />
-//             </div>
-//             <div className="hero-content">
-//               <h1>Why Choose Us?</h1>
-
-//               <p>
-//                 <b>Expertise and Innovation:</b>Backed by a team of skilled professionals and
-//                 innovators, we continuously push the boundaries of technology to deliver cutting-edge
-//                 solutions that exceed industry standards.
-
-//               </p>
-//               <p>
-//                 <b>Customer-Centric Approach:</b>We prioritize your success and satisfaction. Our
-//                 dedicated support team ensures seamless integration, ongoing support, and training to
-//                 maximize the value of our solutions.
-
-//               </p>
-//               <p>
-//                 <b>Data Security:</b>Rest assured, your data is safeguarded through
-//                 robust encryption methods, ensuring the confidentiality and
-//                 integrity of your sensitive information.
-//               </p>
-
-//               <h1>Get Started Today</h1>
-
-//               <p>
-//                 Join leading businesses and organizations worldwide who trust FaceSense for innovative
-//                 visitor recognition solutions. Contact us today to schedule a consultation and discover how our advanced systems can
-//                 transform your operations, elevate customer experiences, and drive growth.
-//               </p>
-
-//               <div className="btn btn-group">
-//                 <NavLink to="/contact">
-//                   <button className="btn"> Connect Now</button>
-//                 </NavLink>
-//                 <button className="btn secondary-btn">Learn More</button>
-//               </div>
-//             </div>
-
-//           </div>
-//         </section>
-//       </main>
-
-//       {/* second section */}
-//       <Analytics />
-//     </>
-//   );
-// };
 import { NavLink } from "react-router-dom";
-import { Analytics } from "../components/Analytics";
-import '../index.css';
+import { motion } from "framer-motion";
+import { FiArrowUpRight, FiShoppingBag, FiCalendar, FiCoffee, FiBook, FiCpu, FiHeart, FiShield } from "react-icons/fi";
+import { Button } from "../components/ui/button";
+import { Badge } from "../components/ui/badge";
+import { Card } from "../components/ui/card";
+
+const useCases = [
+  { icon: FiShoppingBag, title: "Retail", body: "Read customer demographics and mood in real time to sharpen merchandising, layout and staffing." },
+  { icon: FiCalendar, title: "Events", body: "Track attendee make-up and engagement live, then analyse what landed once the doors close." },
+  { icon: FiCoffee, title: "Hospitality", body: "Sense guest sentiment to prompt timely service and tune operations around real peak times." },
+  { icon: FiBook, title: "Cultural venues", body: "Understand visitor flow through galleries and exhibits to plan space and programming." },
+];
+
+const offers = [
+  { icon: FiCpu, title: "State-of-the-art analysis", body: "Computer-vision models detect faces and score age, gender and emotion frame by frame — accurately and on the edge." },
+  { icon: FiHeart, title: "Comprehensive insight", body: "Beyond raw counts: behaviour patterns, sentiment trends and timing, visualised in intuitive charts." },
+  { icon: FiShield, title: "Private by design", body: "FaceSense recognises no one. It stores no faces — only anonymous, aggregated numbers." },
+];
+
+const Section = ({ children, className = "" }) => (
+  <motion.div
+    initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }}
+    viewport={{ once: true, margin: "-80px" }} transition={{ duration: 0.5 }}
+    className={className}
+  >
+    {children}
+  </motion.div>
+);
 
 export const About = () => {
   return (
-    <>
-      <main>
-        <section className="section-hero"><br /><br /><br />
-          <div className="herotop">
-          
-          </div>
-          <div className="container grid grid-two-cols">
-            <div className="hero-content">
-          <h1>Our Mission</h1>
+    <main className="overflow-hidden">
+      {/* Mission */}
+      <section className="container py-16 lg:py-24">
+        <div className="max-w-3xl">
+          <Badge>Our mission</Badge>
+          <h1 className="mt-5 text-balance font-display text-5xl font-bold leading-[1.05] tracking-tight sm:text-6xl">
+            Turning how a space <span className="text-primary">feels</span> into something you can measure
+          </h1>
+          <p className="mt-6 text-pretty text-lg leading-relaxed text-muted-foreground">
+            FaceSense helps businesses understand visitors without compromising their privacy.
+            We translate live video into anonymous insight — age, gender and emotion — so you can
+            make confident, data-driven decisions about your physical spaces.
+          </p>
+        </div>
+      </section>
 
-          <p>
-            Our mission is to revolutionize how businesses harness visitor data to drive growth
-            and enhance customer satisfaction. We are committed to developing cutting-edge technologies
-            that not only capture age, gender, and emotional insights but also translate these data points
-            into actionable strategies that propel your business forward.
-          </p><br /><br /><br />
-              <h1>What we offer?</h1>
-              <p>
-                <b>State-of-the-Art Visitor Recognition Systems:</b>Our systems leverage the latest
-                advancements in computer vision and artificial intelligence to accurately detect and
-                analyze visitor demographics and emotions our solutions are tailored to meet
-                the unique needs of diverse industries.
-              </p>
-              <p>
-                <b>Comprehensive Data Insights:</b>We go beyond traditional analytics by providing comprehensive
-                data insights that enable you to understand customer behaviour patterns, optimize operational
-                efficiency, and tailor marketing strategies. 
-              </p>
-              <p>
-                <b>Customizable Solutions:</b>Every business is unique, and so are our solutions.
-                Whether you need to enhance customer engagement, improve service delivery,
-                or enhance security protocols, our customizable systems are designed to adapt and scale
-                according to your specific requirements.
-              </p>
-            </div>
-            <div className="hero-image">
-              <img src="/images/big.jpg" alt="home images" />
-            </div>
+      {/* What we offer */}
+      <section className="border-y border-border bg-secondary/20">
+        <div className="container py-20">
+          <Section className="max-w-xl">
+            <Badge>What we offer</Badge>
+            <h2 className="mt-4 text-balance text-4xl font-bold tracking-tight sm:text-5xl">Built for clarity, not surveillance</h2>
+          </Section>
+          <div className="mt-12 grid gap-6 md:grid-cols-3">
+            {offers.map((o) => (
+              <Card key={o.title} className="p-7">
+                <span className="grid h-11 w-11 place-items-center rounded-xl bg-primary/10 text-primary"><o.icon size={18} /></span>
+                <h3 className="mt-5 text-xl font-semibold">{o.title}</h3>
+                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{o.body}</p>
+              </Card>
+            ))}
           </div>
-          {/* <div class="wrapper"> */}
-          <div className="flip-box-container">
-            <div className="flip-box">
-              <div className="flip-box-inner">
-                <div className="flip-box-front">
-                  <h3>Retail Analytics</h3>
-                </div>
-                <div className="flip-box-back">
-                  <p>Real-time analysis of customer demographics and emotions in retail enhances targeted 
-                    marketing, optimizes store layouts, and improves satisfaction, significantly boosting overall customer experience.</p>
-                </div>
-              </div>
-            </div>
-            <div className="flip-box">
-              <div className="flip-box-inner">
-                <div className="flip-box-front">
-                  <h3>Event Management</h3>
-                </div>
-                <div className="flip-box-back">
-                  <p>Event organizers leverage attendee demographics and emotions to personalize experiences, monitor engagement in real-time, and analyze feedback for optimizing event satisfaction and relevance.</p>
-                </div>
-              </div>
-            </div>
-            <div className="flip-box">
-              <div className="flip-box-inner">
-                <div className="flip-box-front">
-                  <h3>Hospitality Industry</h3>
-                </div>
-                <div className="flip-box-back">
-                  <p>Hotels and resorts utilize visitor recognition to personalize guest experiences by capturing preferences, analyzing emotions for prompt service, and optimizing operations based on customer behavior and peak times.</p>
-                </div>
-              </div>
-            </div>
-            <div className="flip-box">
-              <div className="flip-box-inner">
-                <div className="flip-box-front">
-                  <h3>Educational Institutions</h3>
-                </div>
-                <div className="flip-box-back">
-                  <p>Museums and cultural centers enhance visitor experiences and exhibit effectiveness using visitor recognition to personalize tours, optimize exhibit layouts based on visitor flow, and gather insights for future exhibit planning.</p>
-                </div>
-              </div>
+        </div>
+      </section>
+
+      {/* Use cases */}
+      <section className="container py-20">
+        <Section className="max-w-xl">
+          <Badge>Where it works</Badge>
+          <h2 className="mt-4 text-balance text-4xl font-bold tracking-tight sm:text-5xl">One platform, many spaces</h2>
+        </Section>
+        <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+          {useCases.map((u) => (
+            <Card key={u.title} className="group p-7 transition-shadow hover:shadow-lift">
+              <span className="grid h-11 w-11 place-items-center rounded-xl bg-foreground text-background transition-colors group-hover:bg-primary"><u.icon size={18} /></span>
+              <h3 className="mt-5 text-lg font-semibold">{u.title}</h3>
+              <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{u.body}</p>
+            </Card>
+          ))}
+        </div>
+      </section>
+
+      {/* CTA */}
+      <section className="container pb-20">
+        <div className="relative overflow-hidden rounded-3xl bg-foreground px-8 py-16 text-background sm:px-16">
+          <div className="pointer-events-none absolute -left-20 -bottom-24 h-72 w-72 rounded-full bg-primary/30 blur-3xl" />
+          <div className="relative max-w-2xl">
+            <h2 className="text-balance font-display text-4xl font-bold tracking-tight sm:text-5xl">Ready to see it live?</h2>
+            <p className="mt-4 text-lg text-background/70">Explore the dashboard or talk to the team about your deployment.</p>
+            <div className="mt-8 flex flex-wrap gap-3">
+              <Button asChild size="lg" className="bg-primary text-primary-foreground"><NavLink to="/service">Open dashboard <FiArrowUpRight /></NavLink></Button>
+              <Button asChild size="lg" variant="outline" className="border-background/30 text-background hover:bg-background/10"><NavLink to="/contact">Contact us</NavLink></Button>
             </div>
           </div>
-          {/* </div> */}
-          <div className="container grid grid-two-cols">
-            <div className="hero-image">
-              <img src="/images/abuuu.jpg" alt="home images" />
-            </div>
-            <div className="hero-content">
-              <h1>Why Choose Us?</h1>
-
-              <p>
-                <b>Expertise and Innovation:</b>Backed by a team of skilled professionals and
-                innovators, we continuously push the boundaries of technology to deliver cutting-edge
-                solutions that exceed industry standards.
-              </p>
-              <p>
-                <b>Customer-Centric Approach:</b>We prioritize your success and satisfaction. Our
-                dedicated support team ensures seamless integration, ongoing support, and training to
-                maximize the value of our solutions.
-              </p>
-              <p>
-                <b>Data Security:</b>Rest assured, your data is safeguarded through
-                robust encryption methods, ensuring the confidentiality and
-                integrity of your sensitive information.
-              </p>
-
-              <h1>Get Started Today</h1>
-
-              <p>
-                Join leading businesses and organizations worldwide who trust FaceSense for innovative
-                visitor recognition solutions. Contact us today to schedule a consultation and discover how our advanced systems can
-                transform your operations, elevate customer experiences, and drive growth.
-              </p>
-
-              <div className="btn btn-group">
-                <NavLink to="/contact">
-                  <button className="btn"> Connect Now</button>
-                </NavLink>
-                <button className="btn secondary-btn">Learn More</button>
-              </div>
-            </div>
-          </div>
-        </section>
-      </main>
-
-      {/* second section */}
-      <Analytics />
-    </>
+        </div>
+      </section>
+    </main>
   );
 };

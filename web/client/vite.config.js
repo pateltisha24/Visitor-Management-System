@@ -1,18 +1,8 @@
-
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
-// https://vitejs.dev/config/
+// API calls go directly to VITE_API_URL (see src/api.js), so no dev proxy is
+// needed. https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react()],
-  server: {
-    proxy: {
-      '^/api': {
-        // target: 'http://localhost:5000',
-        target: 'https://server-zeta-beige.vercel.app/',
-        secure: true,
-        changeOrigin: true,
-      },
-    },
-  },
 });

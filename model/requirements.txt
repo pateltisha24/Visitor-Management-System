@@ -1,0 +1,17 @@
+# FaceSense CV pipeline dependencies.
+opencv-python>=4.8,<5
+numpy>=1.24,<2
+
+# Modern analysis engine (default). Downloads its pretrained weights from public
+# URLs on first run. Pulls in TensorFlow; tf-keras keeps it compatible with the
+# Keras-2 style API DeepFace and the legacy emotion model (model.h5) expect.
+deepface>=0.0.93
+tensorflow>=2.13,<2.17
+tf-keras>=2.15
+
+# MongoDB (default storage) and HTTP ingestion storage.
+pymongo>=4.6
+requests>=2.31
+
+# Loads model/.env.
+python-dotenv>=1.0

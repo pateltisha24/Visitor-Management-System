@@ -1,114 +1,87 @@
-import {useState} from "react";
-import {useNavigate } from "react-router-dom";
+import { useState } from "react";
+import { useNavigate, NavLink } from "react-router-dom";
 import { useAuth } from "../store/auth";
+import { apiFetch } from "../api";
 import { toast } from "react-toastify";
-import "react-toastify/dist/ReactToastify.css";
-import '../index.css';
-export const Login = () =>{
-    const [user,setUser]=useState({
-        username:"",
-        password:"",
-    });
-    const navigate = useNavigate();
-    const {storeTokenInLS} = useAuth();
+import { FiArrowRight, FiLock, FiPlay } from "react-icons/fi";
+import { AuthLayout } from "../components/auth/AuthLayout";
+import { Button } from "../components/ui/button";
+import { Input, Label } from "../components/ui/input";
 
+export const Login = () => {
+  const [user, setUser] = useState({ email: "", password: "" });
+  const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
+  const { storeTokenInLS, enterDemo } = useAuth();
 
+  const handleDemo = async () => {
+    await enterDemo();
+    toast.success("Welcome to the FaceSense demo");
+    navigate("/service");
+  };
 
-   const handleInput =  (e) => {
-    let name = e.target.name;
-    let value = e.target.value;
+  const handleInput = (e) => setUser({ ...user, [e.target.name]: e.target.value });
 
-
-    setUser({
-        ...user,
-        [name]:value,
-    })
-   }
-
-   const handleSubmit = async (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    setLoading(true);
     try {
-        const response = await fetch(`https://server-zeta-beige.vercel.app/api/auth/login`,{
-     method :"POST",
-     headers :{
-        "Content-Type":"application/json",
-     },
-     body: JSON.stringify(user),
-    });
-    const res_data = await response.json();
-    // console.log("login form ",response); 
-    if(response.ok){
-
-        
-    //   console.log("res from server",res_data);
-      storeTokenInLS(res_data.token);
-        // alert("successfull login");
-      setUser({
-      username:"",
-      password:""});
-      toast.success("Login successful");
-      navigate("/service");
-    }
-    else{
+      const response = await apiFetch(`/api/auth/login`, {
+        method: "POST",
+        body: JSON.stringify(user),
+      });
+      const res_data = await response.json();
+      if (response.ok) {
+        storeTokenInLS(res_data.token);
+        setUser({ email: "", password: "" });
+        toast.success("Welcome back");
+        navigate("/service");
+      } else {
         toast.error(res_data.extraDetails ? res_data.extraDetails : res_data.message);
       }
-    
     } catch (error) {
-        console.log(error);
+      toast.error("Could not reach the server. Please try again.");
+    } finally {
+      setLoading(false);
     }
-    // console.log(user);
-    
-   };
+  };
 
-    return (<>
-        <section>
-            <main>
-                <div className="section-registration">
-                    <div className="container grid gird-two-cols">
-                        <div className="registration-image">
-                            <img src ="/images/login.jpg" 
-                            alt="lets fill the login form"
-                            width="500" height="500" 
-                            />
-                        </div> 
-                         <div className="registration-form">
-                           <h1 className="main-heading mb-3">Login</h1> 
-                           <br/>
-                           <form onSubmit={handleSubmit}>
-                            <div>
-                    
-                            <label htmlFor="username">username</label>
-                            <input 
-                              type="text"
-                              name="username"
-                              placeholder="username"
-                              id="username"
-                              required
-                              autoComplete="off"
-                              value={user.username}
-                              onChange={handleInput}
-                            />
-                                 
-                                <label htmlFor="password">password</label>
-                                <input 
-                                  type="password"
-                                  name="password"
-                                  placeholder="password"
-                                  id="password"
-                                  required
-                                  autoComplete="off"
-                                  value={user.password}
-                                  onChange={handleInput}
-                                />
-                            </div>
-                            <button type="submit" className="btn btn-submit">login</button>
-                           </form>
-                
-                         </div>
-                    </div>
-                </div>
-            </main>
-        </section>
-        </>);
+  return (
+    <AuthLayout
+      eyebrow="Welcome back"
+      title="Log in to your dashboard"
+      subtitle="See live visitor analytics for your spaces."
+    >
+      <form onSubmit={handleSubmit} className="space-y-5">
+        <div className="space-y-2">
+          <Label htmlFor="email">Email</Label>
+          <Input id="email" name="email" type="email" placeholder="you@company.com"
+            autoComplete="email" required value={user.email} onChange={handleInput} />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="password">Password</Label>
+          <Input id="password" name="password" type="password" placeholder="••••••••"
+            autoComplete="current-password" required value={user.password} onChange={handleInput} />
+        </div>
+        <Button type="submit" size="lg" className="w-full" disabled={loading}>
+          {loading ? "Signing in…" : <>Log in <FiArrowRight /></>}
+        </Button>
+      </form>
 
+      <div className="my-6 flex items-center gap-4 text-xs text-muted-foreground">
+        <span className="h-px flex-1 bg-border" /> or <span className="h-px flex-1 bg-border" />
+      </div>
+
+      <Button type="button" variant="outline" size="lg" className="w-full" onClick={handleDemo}>
+        <FiPlay /> Explore the live demo
+      </Button>
+      <p className="mt-2 text-center text-xs text-muted-foreground">No sign-up — jump straight into a sample dashboard.</p>
+
+      <p className="mt-6 text-center text-sm text-muted-foreground">
+        <FiLock className="mr-1 inline -translate-y-px" size={12} />
+        New here?{" "}
+        <NavLink to="/register" className="font-medium text-primary hover:underline">Create an account</NavLink>
+      </p>
+    </AuthLayout>
+  );
 };

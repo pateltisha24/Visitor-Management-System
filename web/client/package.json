@@ -8,32 +8,34 @@
     "build": "vite build",
     "lint": "eslint . --ext js,jsx --report-unused-disable-directives --max-warnings 0",
     "preview": "vite preview",
+    "test": "vitest run",
     "start": "vite --mode development"
   },
   "dependencies": {
-    "@vitejs/plugin-vue": "^5.0.5",
     "axios": "^1.7.2",
-    "chart.js": "^4.4.3",
-    "cors": "^2.8.5",
-    "dotenv": "^16.4.5",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "framer-motion": "^12.40.0",
     "react": "^18.2.0",
-    "react-chartjs-2": "^5.2.0",
     "react-dom": "^18.2.0",
-    "react-heatmap-grid": "^0.9.0",
     "react-icons": "^5.2.1",
     "react-router-dom": "^6.23.1",
     "react-toastify": "^10.0.5",
     "recharts": "^2.12.7",
-    "rimraf": "^5.0.7"
+    "tailwind-merge": "^3.6.0"
   },
   "devDependencies": {
     "@types/react": "^18.2.66",
     "@types/react-dom": "^18.2.22",
     "@vitejs/plugin-react": "^4.2.1",
+    "autoprefixer": "^10.5.0",
     "eslint": "^8.57.0",
     "eslint-plugin-react": "^7.34.1",
     "eslint-plugin-react-hooks": "^4.6.0",
     "eslint-plugin-react-refresh": "^0.4.6",
-    "vite": "^5.2.0"
+    "postcss": "^8.5.15",
+    "tailwindcss": "^3.4.19",
+    "vite": "^5.2.0",
+    "vitest": "^4.1.8"
   }
 }

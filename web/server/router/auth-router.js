@@ -36,4 +36,7 @@ router.get('/user', authMiddleware, (req, res) => {
     res.json({ userData: req.user });
 });
 
+router.patch('/profile', authMiddleware, authControllers.updateProfile);
+router.patch('/password', authMiddleware, authControllers.changePassword);
+
 module.exports = router;

@@ -1,19 +1,21 @@
 import cv2
 import argparse
 import numpy as np
-from keras.models import load_model
-from keras.preprocessing.image import img_to_array
+from tensorflow.keras.models import load_model
+from tensorflow.keras.utils import img_to_array
 from collections import Counter
 import pymongo
 import time
 from datetime import datetime
 from collections import defaultdict, Counter
 
+import config
+
 #database
-client=pymongo.MongoClient("mongodb+srv://nisha:face@vsr.hkuuj.mongodb.net/?retryWrites=true&w=majority&appName=vsr")
+client = pymongo.MongoClient(config.require_mongo_uri())
 print(client)
-db=client['test']
-collection=db['client1']
+db = client[config.DB_NAME]
+collection = db[config.COLLECTION_NAME]
 
 counter_collection = db['counters']
 def initialize_counter(sequence_name):
@@ -25,8 +27,8 @@ def initialize_counter(sequence_name):
         'sequence_value': 0
     })
 
-#Uncomment the line below to initialize the counter (run once)
-initialize_counter('your_collection_id')
+# Ensure the auto-increment counter exists (no-op if already initialised).
+initialize_counter(config.COUNTER_NAME)
 
 def get_next_sequence_value(sequence_name):
     result = counter_collection.find_one_and_update(
@@ -59,41 +61,22 @@ def highlightFace(net, frame, conf_threshold=0.7):
 def calculate_mode(predictions):
     return Counter(predictions).most_common(1)[0][0]
 
-# Load models
-faceProto = r"C:\Users\patel\Gender-and-Age-Detection-master\opencv_face_detector.pbtxt"
-faceModel = r"C:\Users\patel\Gender-and-Age-Detection-master\opencv_face_detector_uint8.pb"
-ageProto = r"C:\Users\patel\Gender-and-Age-Detection-master\age_deploy.prototxt"
-ageModel = r"C:\Users\patel\Gender-and-Age-Detection-master\age_net.caffemodel"
-genderProto = r"C:\Users\patel\Gender-and-Age-Detection-master\gender_deploy.prototxt"
-genderModel = r"C:\Users\patel\Gender-and-Age-Detection-master\gender_net.caffemodel"
-emotionModelPath = r'C:\Users\patel\Gender-and-Age-Detection-master\model.h5'
+# Load models (paths resolved relative to this file via config.py)
+MODEL_MEAN_VALUES = config.MODEL_MEAN_VALUES
+ageList = config.AGE_LIST
+genderList = config.GENDER_LIST
+emotionList = config.EMOTION_LIST
 
-MODEL_MEAN_VALUES = (78.4263377603, 87.7689143744, 114.895847746)
-ageList =['(0-10)', '(10-20)', '(20-30)', '(30-50)', '(50-60)', '(60-80)']
-genderList = ['Male', 'Female']
-emotionList = ['Angry', 'Disgust', 'Fear', 'Happy', 'Neutral', 'Sad', 'Surprise']
-
-faceNet = cv2.dnn.readNet(faceModel, faceProto)
-ageNet = cv2.dnn.readNet(ageModel, ageProto)
-genderNet = cv2.dnn.readNet(genderModel, genderProto)
-emotionModel = load_model(emotionModelPath)
+faceNet = cv2.dnn.readNet(config.FACE_MODEL, config.FACE_PROTO)
+ageNet = cv2.dnn.readNet(config.AGE_MODEL, config.AGE_PROTO)
+genderNet = cv2.dnn.readNet(config.GENDER_MODEL, config.GENDER_PROTO)
+emotionModel = load_model(config.EMOTION_MODEL)
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--image')
+parser.add_argument('--image', help='Path to an image/video file. Omit to use webcam 0.')
 args = parser.parse_args()
 
-# Parse arguments for RTSP URL
-# parser = argparse.ArgumentParser()
-# parser.add_argument('--rtsp_url', type=str, default="rtsp://192.168.1.15:8080/h264_ulaw.sdp", help='RTSP URL for video stream')
-# args = parser.parse_args()
-# rtsp_url="rtsp://statmodeller@gmail.com:Hiren@123@camera-ip-address:554/stream1"
-
-# Open video capture
-# video = cv2.VideoCapture(args.rtsp_url)
-# if not video.isOpened():
-#     print("Error opening video stream or file")
-#     exit(1)
-
+# Open video capture: a file/video if --image is given, else the default webcam.
 video = cv2.VideoCapture(args.image if args.image else 0)
 padding = 20
 
@@ -205,7 +188,7 @@ while cv2.waitKey(1) < 0:
                             face_count = 1 if data_type == 'individual' else len(individual_predictions)
  
                             new_document = {
-                                '_id': get_next_sequence_value('your_collection_id'),
+                                '_id': get_next_sequence_value(config.COUNTER_NAME),
                                 'Timestamp': timestamp,
                                 'Date': date_added_str,
                                 'Time': time_added_str,
