@@ -14,34 +14,40 @@ that has nothing installed.
 
 ---
 
-## 1. One-time: deploy the API somewhere always-on
+## 1. One-time: deploy to Render (dashboard + API on one URL)
 
 The live parts (instant updates, camera status, video preview) use WebSockets,
-which Vercel's serverless functions can't hold open. Run the API as a normal
-long-running process instead. The dashboard can stay on Vercel.
+which Vercel's serverless functions can't hold open, so the demo runs on an
+always-on host. The root [`Dockerfile`](../Dockerfile) builds the dashboard into the
+API image, so **one URL serves the dashboard, the API and the live connection**:
+nothing to change on Vercel, no cross-origin setup, and no Vercel login needed on
+the presenting laptop. (Your existing Vercel deployment keeps working as before.)
 
-**Railway** (simplest): New project → *Deploy from GitHub repo* → set the service's
-**root directory** to `server` (it builds `server/Dockerfile`) → add the variables below
-→ *Settings → Networking → Generate domain*.
-**Render** works the same way (Web Service, root directory `server`, Docker). Use a
-paid instance: free instances sleep, and a 30-second cold start mid-demo is worse
-than no realtime at all.
+In Render: **New → Web Service → GitHub** → `pateltisha24/Visitor-Management-System`, then:
+
+| Setting | Value |
+|---|---|
+| Branch | `phase-1-live-demo` (or `main` once merged) |
+| Root Directory | leave empty (the Dockerfile is at the repo root) |
+| Language | Docker (detected from the Dockerfile) |
+| Instance type | **Starter or above**. Free instances sleep when idle, and a ~1 min cold start mid-demo is worse than no realtime |
+| Health Check Path (Advanced) | `/api/auth` |
+
+Environment variables (Render sets `PORT` itself):
 
 | Variable | Value |
 |---|---|
-| `MONGODB_URI` | your Atlas connection string (Atlas → Network Access must allow the host) |
-| `JWT_SECRET_KEY` | same value as today, so existing logins keep working |
-| `INGEST_API_KEY` | a long random string, e.g. `openssl rand -hex 32`; the pipeline uses the same one |
-| `CLIENT_URL` | the dashboard's URL, e.g. `https://facesense.vercel.app` |
-| `GROQ_API_KEY`, `AI_ENC_SECRET` | as in `SETUP.md` (AI summary) |
+| `MONGODB_URI` | your Atlas connection string. Atlas → Network Access must allow Render (e.g. `0.0.0.0/0`, as Vercel already needs) |
+| `JWT_SECRET_KEY` | same value as in `server/.env`, so existing accounts keep working |
+| `INGEST_API_KEY` | same value as in `server/.env` (the pipeline on the Mac uses it too) |
+| `GROQ_API_KEY`, `AI_ENC_SECRET` | for the AI summary, as in `SETUP.md` |
 | `DEMO_SEED_REFRESH` | `true` keeps the demo account's sample data relative to today |
 
-Then point the dashboard at it: in the **client** Vercel project set
-`VITE_API_URL=https://<your-api-domain>` and redeploy.
+Render rebuilds automatically on every push to that branch.
 
-✅ Check: log in to the dashboard. The subtitle under "Visitor analytics" ends in
-**"· realtime"**. If it says "polling every 10s", the browser can't reach
-`wss://<api>/ws/dashboard`; see Troubleshooting.
+✅ Check: open `https://<your-service>.onrender.com`, log in. The subtitle under
+"Visitor analytics" ends in **"· realtime"**. That URL is the one you open (and
+screen-share) on the company laptop.
 
 > Phase 1 is still single-tenant: every account sees every reading. For the demo,
 > register a fresh account with a store-like organisation name (sample mode is
@@ -59,7 +65,7 @@ Create `model/.env`:
 
 ```bash
 VMS_STORAGE=http
-VMS_INGEST_URL=https://<your-api-domain>/api/ingest
+VMS_INGEST_URL=https://<your-service>.onrender.com/api/ingest
 VMS_INGEST_API_KEY=<same INGEST_API_KEY as the server>
 VMS_ENGINE=deepface
 ```
@@ -163,7 +169,7 @@ Record one complete rehearsal (QuickTime → New Screen Recording) as the last-r
 
 | Symptom | Cause / fix |
 |---|---|
-| Subtitle says "polling every 10s" | The API isn't long-running (still on Vercel?), or `VITE_API_URL` points elsewhere. Open the browser console; a failed `wss://…/ws/dashboard` names the host it tried |
+| Subtitle says "polling every 10s" | You're on the Vercel dashboard instead of the Render URL, or the Render service is down/redeploying. Open the browser console; a failed `wss://…/ws/dashboard` names the host it tried |
 | "No cameras online" | Pipeline not running, or it printed `live: can't reach …`: check `VMS_INGEST_URL` and that `VMS_INGEST_API_KEY` matches the server |
 | Camera online but "Preview is off" | Start that pipeline with `--allow-preview` |
 | `save failed: 401` | API key mismatch between `model/.env` and the server |

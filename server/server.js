@@ -27,7 +27,14 @@ app.set('trust proxy', 1);
 
 // Secure HTTP headers. Allow cross-origin resource use since the client is on a
 // different origin and this is a JSON API.
-app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
+// When the dashboard is served from here too, its live camera preview renders
+// frames as blob: URLs, so images allow blob: on top of Helmet's CSP defaults.
+app.use(helmet({
+    crossOriginResourcePolicy: { policy: 'cross-origin' },
+    contentSecurityPolicy: {
+        directives: { 'img-src': ["'self'", 'data:', 'blob:'] },
+    },
+}));
 
 // CORS: allow the configured client origin(s) plus local dev. Auth is sent via
 // the Authorization header (not cookies), so credentials are not required.

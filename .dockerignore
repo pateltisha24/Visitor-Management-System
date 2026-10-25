@@ -1,0 +1,10 @@
+.git
+**/node_modules
+**/.env
+**/.env.*
+**/.env 2
+model
+docs
+client/dist
+server/public
+server/test
