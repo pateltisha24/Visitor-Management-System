@@ -73,6 +73,11 @@ VMS_INGEST_API_KEY=<your-ingest-api-key>`} />
             <CodeBlock code={`python pipeline.py                       # webcam
 python pipeline.py --source file --file clip.mp4
 python pipeline.py --source rtsp --rtsp-url rtsp://user:pass@ip:554/stream`} />
+            <CardDescription>
+              Name each camera, and optionally let this dashboard watch its live, annotated feed
+              (relayed only while someone is watching, never recorded):
+            </CardDescription>
+            <CodeBlock code={`python pipeline.py --camera-name "Front desk" --allow-preview`} />
             <p className="flex items-center gap-2 pt-1 text-sm text-muted-foreground">
               <FiArrowRight className="text-primary" /> Readings appear on your dashboard within seconds.
             </p>

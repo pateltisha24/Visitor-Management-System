@@ -1,0 +1,132 @@
+const { test, before, after } = require("node:test");
+const assert = require("node:assert");
+const http = require("node:http");
+const jwt = require("jsonwebtoken");
+const WebSocket = require("ws");
+
+process.env.JWT_SECRET_KEY = "test-jwt";
+process.env.INGEST_API_KEY = "test-ingest";
+
+// The gateway checks the dashboard user exists; no database in unit tests.
+const User = require("../models/user-model");
+User.exists = async ({ email }) => (email === "a@b.com" ? { _id: 1 } : null);
+
+const realtime = require("../utils/realtime");
+const { buildFilter } = require("../controllers/analytics-controller");
+const { ingestSchema } = require("../validators/ingest-validator");
+
+let server, base;
+before(async () => {
+    server = http.createServer();
+    realtime.attach(server);
+    await new Promise((r) => server.listen(0, r));
+    base = `ws://127.0.0.1:${server.address().port}`;
+});
+after(() => server.close());
+
+// Collects messages so tests can await the next one matching a predicate.
+function client(path, headers) {
+    const ws = new WebSocket(base + path, { headers });
+    const inbox = [];
+    const waiters = [];
+    ws.on("message", (data, isBinary) => {
+        const msg = isBinary ? { binary: data } : JSON.parse(data.toString());
+        const i = waiters.findIndex((w) => w.pred(msg));
+        if (i >= 0) waiters.splice(i, 1)[0].resolve(msg);
+        else inbox.push(msg);
+    });
+    ws.next = (pred, ms = 2000) => {
+        const i = inbox.findIndex(pred);
+        if (i >= 0) return Promise.resolve(inbox.splice(i, 1)[0]);
+        return new Promise((resolve, reject) => {
+            const w = { pred, resolve };
+            waiters.push(w);
+            setTimeout(() => reject(new Error("timed out waiting for message")), ms);
+        });
+    };
+    ws.opened = new Promise((resolve, reject) => { ws.on("open", resolve); ws.on("error", reject); });
+    return ws;
+}
+
+async function dashboard() {
+    const ws = client("/ws/dashboard");
+    await ws.opened;
+    ws.send(JSON.stringify({ type: "auth", token: jwt.sign({ email: "a@b.com" }, process.env.JWT_SECRET_KEY) }));
+    await ws.next((m) => m.type === "ready");
+    return ws;
+}
+
+test("realtime: agent without the API key is rejected", async () => {
+    const ws = client("/ws/agent", { "x-api-key": "wrong" });
+    await assert.rejects(ws.opened);
+});
+
+test("realtime: dashboard with a bad token is closed", async () => {
+    const ws = client("/ws/dashboard");
+    await ws.opened;
+    ws.send(JSON.stringify({ type: "auth", token: "nope" }));
+    const code = await new Promise((r) => ws.on("close", r));
+    assert.strictEqual(code, 4003);
+});
+
+test("realtime: camera presence, preview on demand, frame relay, events, readings", async () => {
+    const dash = await dashboard();
+    const agent = client("/ws/agent", { "x-api-key": "test-ingest" });
+    await agent.opened;
+    agent.send(JSON.stringify({ type: "hello", cameraId: "front-desk", cameraName: "Front desk", previewAllowed: true }));
+
+    const cams = await dash.next((m) => m.type === "cameras" && m.cameras.length === 1);
+    assert.strictEqual(cams.cameras[0].cameraName, "Front desk");
+    assert.strictEqual(cams.cameras[0].online, true);
+
+    // Watching the camera asks the agent to start sending frames...
+    dash.send(JSON.stringify({ type: "preview", cameraId: "front-desk" }));
+    assert.deepStrictEqual(await agent.next((m) => m.type === "preview"), { type: "preview", on: true });
+
+    // ...which are relayed to the viewer as-is.
+    agent.send(Buffer.from([0xff, 0xd8, 0xff, 0xd9]), { binary: true });
+    const frame = await dash.next((m) => m.binary);
+    assert.deepStrictEqual([...frame.binary], [0xff, 0xd8, 0xff, 0xd9]);
+
+    // Events are tagged with the camera; readings published by ingest arrive too.
+    agent.send(JSON.stringify({ type: "event", kind: "returning_visitor" }));
+    const ev = await dash.next((m) => m.type === "event");
+    assert.strictEqual(ev.kind, "returning_visitor");
+    assert.strictEqual(ev.cameraId, "front-desk");
+    realtime.publish({ type: "reading", reading: { Gender: "Female", cameraId: "front-desk" } });
+    assert.strictEqual((await dash.next((m) => m.type === "reading")).reading.Gender, "Female");
+
+    // Last viewer leaves -> preview stops; agent disconnects -> camera goes offline.
+    dash.close();
+    assert.deepStrictEqual(await agent.next((m) => m.type === "preview"), { type: "preview", on: false });
+    const dash2 = await dashboard();
+    agent.close();
+    await dash2.next((m) => m.type === "cameras" && m.cameras.length === 0);
+    dash2.close();
+});
+
+test("realtime: preview is never requested from a camera that doesn't allow it", async () => {
+    const dash = await dashboard();
+    const agent = client("/ws/agent", { "x-api-key": "test-ingest" });
+    await agent.opened;
+    agent.send(JSON.stringify({ type: "hello", cameraId: "private-cam", previewAllowed: false }));
+    await dash.next((m) => m.type === "cameras" && m.cameras.some((c) => c.cameraId === "private-cam"));
+    dash.send(JSON.stringify({ type: "preview", cameraId: "private-cam" }));
+    await assert.rejects(agent.next((m) => m.type === "preview", 300));
+    agent.close();
+    dash.close();
+});
+
+test("buildFilter: camera and since", () => {
+    assert.strictEqual(buildFilter({ camera: "entrance" }).cameraId, "entrance");
+    assert.strictEqual(buildFilter({ camera: "unassigned" }).cameraId, null);
+    const f = buildFilter({ since: "2026-10-25T14:00:00Z" });
+    assert.strictEqual(f.Timestamp.$gte.toISOString(), "2026-10-25T14:00:00.000Z");
+    assert.strictEqual(buildFilter({ since: "garbage" }).Timestamp, undefined);
+});
+
+test("ingestSchema: cameraId must be a slug", () => {
+    const base = { Age: "(20-30)", Gender: "Female", Emotion: "Happy" };
+    assert.strictEqual(ingestSchema.safeParse({ ...base, cameraId: "front-desk", cameraName: "Front desk" }).success, true);
+    assert.strictEqual(ingestSchema.safeParse({ ...base, cameraId: "front desk!" }).success, false);
+});

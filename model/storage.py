@@ -6,7 +6,7 @@ Two backends, selected by config.STORAGE:
   - "http":  POST to an authenticated ingestion endpoint instead, so the camera
     machine never holds database credentials.
 """
-from datetime import datetime
+from datetime import datetime, timezone
 import config
 
 
@@ -62,11 +62,15 @@ def get_store():
     return MongoStore()
 
 
-def build_reading(age, gender, emotion, group_size):
-    """Assemble a reading document in the shape the dashboard reads."""
+def build_reading(age, gender, emotion, group_size, camera_id=None, camera_name=None):
+    """Assemble a reading document in the shape the dashboard reads.
+
+    Timestamp is an exact UTC instant (so time-based filters line up wherever
+    the server runs); Date/Time stay in the camera's local time for the charts.
+    """
     now = datetime.now()
-    return {
-        "Timestamp": now,
+    reading = {
+        "Timestamp": datetime.now(timezone.utc),
         "Date": now.date().isoformat(),
         "Time": now.time().isoformat(),
         "Age": age,
@@ -75,3 +79,7 @@ def build_reading(age, gender, emotion, group_size):
         "Gi": "group" if group_size > 1 else "individual",
         "Gi_count": group_size,
     }
+    if camera_id:
+        reading["cameraId"] = camera_id
+        reading["cameraName"] = camera_name or camera_id
+    return reading

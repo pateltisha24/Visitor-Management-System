@@ -11,7 +11,7 @@ import numpy as np
 
 class Track:
     __slots__ = ("id", "centroid", "bbox", "disappeared", "frames_seen",
-                 "max_concurrent", "samples")
+                 "max_concurrent", "samples", "embedding")
 
     def __init__(self, track_id, centroid, bbox):
         self.id = track_id
@@ -21,6 +21,7 @@ class Track:
         self.frames_seen = 1
         self.max_concurrent = 1          # peak simultaneous faces while visible
         self.samples = {"age": [], "gender": [], "emotion": []}
+        self.embedding = None            # face embedding for same-day re-ID (lazy)
 
     def add_sample(self, age, gender, emotion):
         self.samples["age"].append(age)

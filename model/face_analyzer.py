@@ -94,3 +94,32 @@ class FaceAnalyzer:
         except Exception as e:
             print(f"FaceAnalyzer: analysis failed ({e}).")
             return None
+
+    def warm_up(self, with_embedding=False):
+        """Load (and on first run, download) the models now, so the first real
+        visitor isn't delayed by several seconds, which matters in a live demo."""
+        dummy = np.full((160, 160, 3), 128, np.uint8)
+        self.analyze(dummy)
+        if with_embedding:
+            self.embed(dummy)
+
+    def embed(self, face_bgr):
+        """Return a face embedding (list of floats) for same-day re-ID, or None.
+
+        Only the DeepFace engine supports this. detector_backend="skip" reuses
+        the crop we already detected, so no second face detection runs.
+        """
+        if self.engine != "deepface" or face_bgr is None or face_bgr.size == 0:
+            return None
+        try:
+            reps = self._deepface.represent(
+                face_bgr,
+                model_name=config.REID_MODEL,
+                detector_backend="skip",
+                enforce_detection=False,
+            )
+            r = reps[0] if isinstance(reps, list) else reps
+            return r["embedding"]
+        except Exception as e:
+            print(f"FaceAnalyzer: embedding failed ({e}).")
+            return None

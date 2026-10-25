@@ -13,8 +13,11 @@ const analyticsRoute = require('./router/analytics-router');
 const ingestRoute = require('./router/ingest-router');
 const insightsRoute = require('./router/insights-router');
 const cronRoute = require('./router/cron-router');
+const cameraRoute = require('./router/camera-router');
 const connectDb = require('./utils/db');
 const errorMiddleware = require('./middlewares/error-middleware');
+const realtime = require('./utils/realtime');
+const scheduler = require('./utils/scheduler');
 
 const app = express();
 const port = process.env.PORT || 5000;
@@ -60,7 +63,16 @@ app.use(cookieParser());
 const apiLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 300, standardHeaders: true, legacyHeaders: false });
 const authLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 50, standardHeaders: true, legacyHeaders: false, message: { message: "Too many attempts, please try again later." } });
 
-app.use('/api', apiLimiter);
+// Live dashboards refetch when a reading arrives and busy cameras ingest often,
+// so those two paths get roomier budgets than the general API.
+const dashboardLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 1500, standardHeaders: true, legacyHeaders: false });
+const ingestLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 3000, standardHeaders: true, legacyHeaders: false });
+
+app.use('/api', (req, res, next) => {
+    if (req.path === '/ingest') return ingestLimiter(req, res, next);
+    if (req.path.startsWith('/analytics/') || req.path === '/cameras') return dashboardLimiter(req, res, next);
+    return apiLimiter(req, res, next);
+});
 
 // Routes (stricter limiter on auth to slow brute-force).
 app.use('/api/auth', authLimiter, authRoute);
@@ -69,6 +81,7 @@ app.use('/api', analyticsRoute);
 app.use('/api', ingestRoute);
 app.use('/api', insightsRoute);
 app.use('/api', cronRoute);
+app.use('/api', cameraRoute);
 
 // Serve the built React client (copied into ./public at build time) so the API
 // and the SPA are one deployment on a single origin.
@@ -89,10 +102,14 @@ app.use(errorMiddleware);
 mongoose.connection.on('connected', () => console.log('MongoDB connected successfully'));
 mongoose.connection.on('error', (err) => console.error(`MongoDB connection error: ${err.message}`));
 
-// Start the server locally. On Vercel the exported app is used instead.
+// Start a long-running server (local dev, or an always-on host such as Railway,
+// Render or Fly). This mode adds the realtime WebSocket gateway and the in-process
+// scheduler. On Vercel the exported app is used instead, without either.
 if (require.main === module) {
     connectDb().then(() => {
-        app.listen(port, () => console.log(`Server is running at port: ${port}`));
+        const server = app.listen(port, () => console.log(`Server is running at port: ${port}`));
+        realtime.attach(server);
+        scheduler.start();
     });
 } else {
     // Serverless (Vercel): establish the DB connection on cold start.

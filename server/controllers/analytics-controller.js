@@ -4,9 +4,11 @@ const Client1 = require("../models/client1");
 //   ?date=YYYY-MM-DD                 -> single day
 //   ?from=YYYY-MM-DD&to=YYYY-MM-DD   -> inclusive range
 //   ?gender=&emotion=&gi=&age=       -> optional cross-filters
+//   ?camera=<cameraId>               -> one camera ("unassigned" = readings without one)
+//   ?since=<ISO timestamp>           -> only readings at/after this instant (demo "start fresh")
 // Dates are stored as ISO strings, which sort correctly lexicographically.
 function buildFilter(query) {
-    const { date, from, to, gender, emotion, gi, age } = query;
+    const { date, from, to, gender, emotion, gi, age, camera, since } = query;
     const filter = {};
     if (date) filter.Date = date;
     else if (from || to) {
@@ -18,6 +20,11 @@ function buildFilter(query) {
     if (emotion) filter.Emotion = emotion;
     if (gi) filter.Gi = gi;
     if (age) filter.Age = age;
+    if (camera) filter.cameraId = camera === "unassigned" ? null : String(camera);
+    if (since) {
+        const t = new Date(since);
+        if (!Number.isNaN(t.getTime())) filter.Timestamp = { $gte: t };
+    }
     // Seeded demo data is hidden unless explicitly requested via ?sample=true.
     filter.sample = query.sample === "true" ? true : { $ne: true };
     return filter;
@@ -131,4 +138,4 @@ const getSummary = async (req, res) => {
     }
 };
 
-module.exports = { getData, getRecent, getDates, getSummary };
+module.exports = { getData, getRecent, getDates, getSummary, buildFilter };

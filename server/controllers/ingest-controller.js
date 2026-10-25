@@ -1,5 +1,6 @@
 const mongoose = require("mongoose");
 const Client1 = require("../models/client1");
+const realtime = require("../utils/realtime");
 
 // Atomically get the next numeric _id from the shared "counters" collection
 // (same scheme the Python pipeline uses for direct Mongo writes).
@@ -17,7 +18,7 @@ async function nextId() {
 // POST /api/ingest  — machine-to-machine; authenticated by x-api-key header.
 const ingest = async (req, res) => {
     try {
-        const { Age, Gender, Emotion, Gi, Gi_count, Date: date, Time, Timestamp } = req.body;
+        const { Age, Gender, Emotion, Gi, Gi_count, Date: date, Time, Timestamp, cameraId, cameraName } = req.body;
         if (!Age || !Gender || !Emotion) {
             return res.status(400).json({ message: "Age, Gender and Emotion are required" });
         }
@@ -30,8 +31,11 @@ const ingest = async (req, res) => {
             Age, Gender, Emotion,
             Gi: Gi || (Gi_count > 1 ? "group" : "individual"),
             Gi_count: Gi_count || 1,
+            ...(cameraId && { cameraId, cameraName: cameraName || cameraId }),
         };
         await Client1.create(reading);
+        // Push to open dashboards so they update without waiting for a poll.
+        realtime.publish({ type: "reading", reading });
         res.status(201).json({ message: "stored", id: reading._id });
     } catch (err) {
         res.status(500).json({ message: err.message });

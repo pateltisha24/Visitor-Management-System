@@ -9,6 +9,8 @@ const ingestSchema = z.object({
     Date: z.string().optional(),
     Time: z.string().optional(),
     Timestamp: z.string().optional(),
+    cameraId: z.string().max(64).regex(/^[a-z0-9][a-z0-9-]*$/i, "cameraId must be letters, digits or dashes").optional(),
+    cameraName: z.string().max(80).optional(),
 });
 
 module.exports = { ingestSchema };

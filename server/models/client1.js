@@ -11,6 +11,10 @@ const client1Schema = new mongoose.Schema({
   Emotion: String,
   Gi: String,
   Gi_count: Number,
+  // Which camera produced the reading (set by the CV pipeline's --camera-id /
+  // --camera-name). Older readings have neither and show as "Unassigned".
+  cameraId: String,
+  cameraName: String,
   // Marks seeded demo data. Real readings (from the CV pipeline / ingest) omit
   // this; the API only returns sample data when explicitly requested.
   sample: { type: Boolean, default: false },

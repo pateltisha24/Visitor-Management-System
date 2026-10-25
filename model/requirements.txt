@@ -13,5 +13,8 @@ tf-keras>=2.15
 pymongo>=4.6
 requests>=2.31
 
+# Live link to the server (camera status, events, dashboard preview).
+websockets>=12
+
 # Loads model/.env.
 python-dotenv>=1.0
