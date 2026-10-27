@@ -12,7 +12,6 @@ const contactRoute = require('./router/contact-router');
 const analyticsRoute = require('./router/analytics-router');
 const ingestRoute = require('./router/ingest-router');
 const insightsRoute = require('./router/insights-router');
-const cronRoute = require('./router/cron-router');
 const cameraRoute = require('./router/camera-router');
 const connectDb = require('./utils/db');
 const errorMiddleware = require('./middlewares/error-middleware');
@@ -22,7 +21,7 @@ const scheduler = require('./utils/scheduler');
 const app = express();
 const port = process.env.PORT || 5000;
 
-// Behind Vercel's proxy, trust X-Forwarded-* so rate-limiting sees real IPs.
+// Behind the host's proxy (Render), trust X-Forwarded-* so rate-limiting sees real IPs.
 app.set('trust proxy', 1);
 
 // Secure HTTP headers. Allow cross-origin resource use since the client is on a
@@ -87,7 +86,6 @@ app.use('/api/form', contactRoute);
 app.use('/api', analyticsRoute);
 app.use('/api', ingestRoute);
 app.use('/api', insightsRoute);
-app.use('/api', cronRoute);
 app.use('/api', cameraRoute);
 
 // Serve the built React client (copied into ./public at build time) so the API
@@ -109,18 +107,14 @@ app.use(errorMiddleware);
 mongoose.connection.on('connected', () => console.log('MongoDB connected successfully'));
 mongoose.connection.on('error', (err) => console.error(`MongoDB connection error: ${err.message}`));
 
-// Start a long-running server (local dev, or an always-on host such as Railway,
-// Render or Fly). This mode adds the realtime WebSocket gateway and the in-process
-// scheduler. On Vercel the exported app is used instead, without either.
+// Start the server: REST API, the dashboard (from ./public), the realtime
+// WebSocket gateway and the in-process scheduler, all in one long-running process.
 if (require.main === module) {
     connectDb().then(() => {
         const server = app.listen(port, () => console.log(`Server is running at port: ${port}`));
         realtime.attach(server);
         scheduler.start();
     });
-} else {
-    // Serverless (Vercel): establish the DB connection on cold start.
-    connectDb();
 }
 
 module.exports = app;

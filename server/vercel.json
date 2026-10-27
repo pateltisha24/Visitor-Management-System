@@ -1,5 +1,0 @@
-{
-  "crons": [
-    { "path": "/api/cron/rollup", "schedule": "0 1 * * *" }
-  ]
-}

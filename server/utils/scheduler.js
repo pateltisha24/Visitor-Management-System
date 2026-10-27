@@ -1,6 +1,5 @@
-// In-process scheduled jobs for always-on hosts (Railway, Render, Fly, a VM).
-// On Vercel the same rollup runs via Vercel Cron (vercel.json) instead, and this
-// module is never started.
+// In-process scheduled jobs (daily rollup, optional sample-data refresh), run by
+// the long-running server.
 const { runRollup } = require("../controllers/cron-controller");
 const { seedSampleData, sampleIsStale } = require("./demo-seed");
 
@@ -9,7 +8,7 @@ const HOUR_MS = 60 * 60 * 1000;
 let lastRollupDate = null;
 
 async function tick() {
-    // Daily rollup of yesterday, once per day after 01:00 UTC (matches vercel.json).
+    // Daily rollup of yesterday, once per day after 01:00 UTC.
     const now = new Date();
     const today = now.toISOString().slice(0, 10);
     if (now.getUTCHours() >= 1 && lastRollupDate !== today) {

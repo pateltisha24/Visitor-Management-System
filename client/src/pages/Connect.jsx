@@ -88,7 +88,8 @@ python pipeline.py --source rtsp --rtsp-url rtsp://user:pass@ip:554/stream`} />
           <h3 className="text-base font-semibold">Privacy</h3>
           <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
             FaceSense recognises no one and stores no images. Faces are analysed on the edge and only
-            anonymous, aggregated readings (age band, gender, emotion) ever leave the camera machine.
+            anonymous readings (age band, gender, emotion) leave the camera machine, plus the
+            annotated live preview while someone watches it, if you enable it for that camera.
           </p>
         </Card>
       </div>

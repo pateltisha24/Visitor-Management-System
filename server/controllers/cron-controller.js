@@ -12,8 +12,8 @@ const toMap = (arr) => arr.reduce((acc, { _id, count }) => {
     return acc;
 }, {});
 
-// Pre-aggregate one day's readings into a single rollup doc. Shared by the
-// Vercel Cron endpoint below and the in-process scheduler (utils/scheduler.js).
+// Pre-aggregate one day's readings into a single rollup doc. Run daily by the
+// in-process scheduler (utils/scheduler.js).
 async function runRollup(date = yesterday()) {
     const match = { Date: date, sample: { $ne: true } };
     const [total, genderAgg, emotionAgg, giAgg, ageAgg] = await Promise.all([
@@ -35,20 +35,4 @@ async function runRollup(date = yesterday()) {
     return { date, total };
 }
 
-// GET /api/cron/rollup — secured by CRON_SECRET (Vercel Cron sends
-// "Authorization: Bearer <CRON_SECRET>").
-const rollup = async (req, res) => {
-    const secret = process.env.CRON_SECRET;
-    const provided = (req.header("authorization") || "").replace("Bearer ", "") || req.query.secret;
-    if (!secret || provided !== secret) {
-        return res.status(401).json({ message: "Unauthorized" });
-    }
-    try {
-        const { date, total } = await runRollup(req.query.date || undefined);
-        res.json({ ok: true, date, total });
-    } catch (e) {
-        res.status(500).json({ message: e.message });
-    }
-};
-
-module.exports = { rollup, runRollup };
+module.exports = { runRollup };

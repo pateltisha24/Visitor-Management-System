@@ -1,7 +1,6 @@
-# One image for an always-on host (Render, Railway, Fly.io, any VM): builds the
-# dashboard and serves it from the API, so a single URL carries the dashboard,
-# the REST API and the realtime WebSockets (no cross-origin setup). Unlike the
-# Vercel deployment, the long-running process also runs the scheduled jobs.
+# The production image (deployed on Render): builds the dashboard and serves it
+# from the API, so a single URL carries the dashboard, the REST API and the
+# realtime WebSockets. The same process runs the scheduled jobs.
 FROM node:20-alpine AS client
 WORKDIR /client
 COPY client/package*.json ./

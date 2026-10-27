@@ -21,8 +21,7 @@
 // Preview frames are relayed in memory only and never stored. An agent only sends
 // them while at least one dashboard is watching that camera.
 //
-// On serverless hosts (Vercel) there is no long-lived server, attach() is never
-// called and publish() is a no-op; the dashboard falls back to polling.
+// If the gateway is unreachable, the dashboard falls back to polling.
 const { WebSocketServer } = require("ws");
 const jwt = require("jsonwebtoken");
 const User = require("../models/user-model");

@@ -13,7 +13,7 @@ const MAX_ATTEMPTS_BEFORE_UNAVAILABLE = 3;
 // Live connection to the server's realtime gateway (server/utils/realtime.js).
 //
 // status: "off" | "connecting" | "live" | "unavailable". "unavailable" means the
-// server has no realtime support (e.g. deployed on Vercel) or rejected the token;
+// gateway can't be reached or rejected the token;
 // the dashboard then keeps polling as before, and we keep retrying slowly.
 //
 // subscribe(fn)       -> fn(msg) for every JSON message ("reading", "event", ...)

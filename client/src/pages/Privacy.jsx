@@ -3,9 +3,9 @@ import { Badge } from "../components/ui/badge";
 import { Card } from "../components/ui/card";
 
 const points = [
-  { icon: FiEyeOff, title: "No recognition", body: "FaceSense never identifies anyone. It detects faces and estimates age band, gender and emotion — it does not match or remember individuals." },
-  { icon: FiCpu, title: "On-edge inference", body: "Analysis runs on the machine attached to your camera. Video frames are processed locally and never uploaded." },
-  { icon: FiShield, title: "Anonymous aggregates only", body: "The only data that leaves the camera is anonymous, aggregated readings — counts by age band, gender and emotion over time." },
+  { icon: FiEyeOff, title: "No recognition", body: "FaceSense never identifies anyone. It detects faces and estimates age band, gender and emotion. Optional same-day re-identification compares faces in memory only to avoid counting a returning visitor twice, and is wiped at the end of each day." },
+  { icon: FiCpu, title: "On-edge inference", body: "Analysis runs on the machine attached to your camera. Video is processed locally. If you turn on a camera's optional live preview, its annotated feed is relayed to signed-in dashboard viewers while they watch, and is never recorded." },
+  { icon: FiShield, title: "Anonymous aggregates only", body: "Apart from the optional live preview, the only data that leaves the camera is anonymous readings: age band, gender and emotion, with a timestamp and camera name." },
   { icon: FiTrash2, title: "No images stored", body: "No photos, video or biometric templates are saved. There is nothing that can be traced back to a person." },
 ];
 

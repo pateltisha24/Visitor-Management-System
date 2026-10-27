@@ -20,9 +20,7 @@ identifying or storing a single face.
 - [Repository layout](#repository-layout)
 - [Getting started](#getting-started)
 - [Environment variables](#environment-variables)
-- [API reference](#api-reference)
-- [The data model](#the-data-model)
-- [Deployment (Vercel)](#deployment-vercel)
+- [Deployment (Render)](#deployment-render)
 - [Scaling & production notes](#scaling--production-notes)
 - [Privacy](#privacy)
 - [Testing](#testing)
@@ -77,15 +75,16 @@ CV layer never calls the web server directly (though it *can* push over HTTP; se
 
 - `**model/**` — Python CV pipeline. OpenCV SSD face detector + a centroid tracker, with
 age/gender/emotion analysis via **DeepFace** (modern pretrained models) or a lightweight
-legacy OpenCV/Keras engine. **Runs on the machine attached to the camera** — not on Vercel.
+legacy OpenCV/Keras engine. **Runs on the machine attached to the camera**, not on the server.
 - `**server/`** — Node/Express + Mongoose API: JWT/bcrypt auth, analytics aggregation,
-BYOK AI, contact form, machine-to-machine ingestion, and a scheduled rollup endpoint.
+BYOK AI, contact form, machine-to-machine ingestion, a realtime WebSocket gateway and an
+in-process daily rollup.
 - `**client/**` — React + Vite dashboard (Recharts), Tailwind + a shadcn-style token
-theme, Framer Motion. Deployable to Vercel.
+theme, Framer Motion. Built into the server's Docker image and served on the same URL.
 
 **Data flow:** the CV pipeline writes aggregated readings to the `client1` collection (directly,
-or via the authenticated `POST /api/ingest`). The dashboard polls the Express API, which runs
-MongoDB aggregation pipelines and returns ready-to-render summaries.
+or via the authenticated `POST /api/ingest`). The server pushes new readings to open dashboards
+over WebSockets (polling is the fallback) and runs MongoDB aggregation pipelines for the summaries.
 
 ## Tech stack
 
@@ -96,7 +95,7 @@ MongoDB aggregation pipelines and returns ready-to-render summaries.
 | Backend  | Node.js, Express, Mongoose, JWT, bcryptjs, Zod, Helmet, express-rate-limit, Vercel AI SDK (`ai`, `@ai-sdk/groq` · `openai` · `anthropic`, `@openrouter/ai-sdk-provider`) |
 | Frontend | React 18, Vite, React Router, Recharts, Tailwind CSS, Framer Motion, react-icons, react-toastify                                                                         |
 | Data     | MongoDB Atlas                                                                                                                                                            |
-| Hosting  | Vercel (client + server), on-prem/edge machine for the CV pipeline                                                                                                       |
+| Hosting  | Render (one Docker service: dashboard + API + WebSockets), on-prem/edge machine for the CV pipeline |
 
 
 ## Repository layout
@@ -196,15 +195,23 @@ See **[SETUP.md](SETUP.md)** for creating a Groq key and wiring Google OAuth.
 | `AI_ENC_SECRET`  | Encrypts users' stored BYOK keys at rest                  |
 | `INGEST_API_KEY` | Shared secret for `POST /api/ingest`                      |
 | `RETENTION_DAYS` | If set, raw readings auto-expire after N days (TTL index) |
-| `CRON_SECRET`    | Auth for the Vercel Cron rollup endpoint                  |
 
 
-**Client (`client/.env.`*)** — `VITE_API_URL` (backend base URL).
+**Client (`client/.env.`*)** — `VITE_API_URL`, only for local dev (production serves the
+dashboard from the API's own origin).
 
 **CV pipeline (`model/.env`)** — `MONGODB_URI`, `RTSP_URL`, and optional tuning
 (`VMS_ENGINE`, `VMS_ANALYZE_EVERY`, `VMS_STORAGE`, `VMS_INGEST_URL`, `VMS_INGEST_API_KEY`).
 
 Real secrets live only in local `.env` files (git-ignored); `*.env.example` document the keys.
+
+## Deployment (Render)
+
+Production is a single Render web service built from the root [`Dockerfile`](Dockerfile): it
+builds the dashboard and serves it from the API, so one URL carries the dashboard, the REST
+API and the realtime WebSockets, and the same process runs the daily rollup. Render rebuilds
+on every push to `main`. Step-by-step settings and environment variables are in
+[docs/DEMO.md](docs/DEMO.md).
 
 ## Scaling & production notes
 
@@ -213,16 +220,17 @@ Real secrets live only in local `.env` files (git-ignored); `*.env.example` docu
 the free tier; a daily pre-aggregation (`daily_rollups`) keeps history cheap to query.
 - **Security** — Helmet headers, rate limiting (stricter on auth), Zod validation on all
 external input, bcrypt password hashing, and encrypted-at-rest BYOK keys. *Trade-off:*
-JWT-in-localStorage is simple and CORS-friendly but XSS-exposed; an httpOnly cookie is safer
-but trickier cross-origin on Vercel.
-- **Serverless realities** — no WebSockets/Redis/long-lived workers; cold starts; function
-time limits (so aggregation is kept fast). Rate-limit counters are per-instance in memory.
+JWT-in-localStorage is simple but XSS-exposed; now that the dashboard and API share an origin,
+an httpOnly cookie would be the safer next step.
+- **Single instance** — the realtime gateway and rate-limit counters live in process memory,
+which is right for one instance; running several would need a shared pub/sub and store (e.g. Redis).
 
 ## Privacy
 
-FaceSense is **private by design**: no recognition, **on-edge inference** (frames never leave
-the camera machine), **anonymous aggregates only**, and **no images or biometric templates
-stored**. Because no personal data is collected, it helps stay aligned with regulations such
+FaceSense is **private by design**: no recognition, **on-edge inference** (video stays on the
+camera machine, except a camera's optional live preview, which is relayed to signed-in viewers
+while they watch and never recorded), **anonymous readings only**, and **no images or biometric
+templates stored** (optional same-day re-ID keeps face embeddings in memory and wipes them daily). Because no personal data is collected, it helps stay aligned with regulations such
 as GDPR. See the in-app `/privacy` page.
 
 ## Testing
@@ -240,7 +248,7 @@ explainable CV pipeline, and the "senior" cross-cutting concerns (indexing, rete
 security, tests, code-splitting) — all deployable on a free tier.
 
 **In scope** — single shared workspace, anonymous analytics, BYOK AI insights, one camera
-per deployment, Vercel-friendly architecture.
+per workspace, multiple cameras, a single-container deployment.
 
 **Intentionally out of scope** — multi-tenant data isolation, billing, horizontal scaling,
 and on-device mobile inference.

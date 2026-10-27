@@ -10,8 +10,8 @@ Groq is the zero-cost default.
 1. Go to **https://console.groq.com** and sign in.
 2. **API Keys → Create API Key**, copy it.
 3. On the **server**, set `GROQ_API_KEY=<key>` (and `AI_ENC_SECRET=<any long random string>`
-   used to encrypt users' own keys at rest). Locally in `server/.env`; on Vercel in the
-   project's Environment Variables.
+   used to encrypt users' own keys at rest). Locally in `server/.env`; on Render in the
+   service's **Environment** settings.
 4. Done — AI summaries now work out of the box. A default model is preset
    (`llama-3.3-70b-versatile`); users can override provider/model/key in **Settings → AI insights**.
 
@@ -35,7 +35,7 @@ the server verifies it → issues our own JWT (same token the rest of the app al
    in testing.
 3. **APIs & Services → Credentials → Create Credentials → OAuth client ID** →
    Application type **Web application**.
-4. **Authorized JavaScript origins**: `http://localhost:5173` and your client's Vercel URL.
+4. **Authorized JavaScript origins**: `http://localhost:5173` and your Render URL.
 5. **Authorized redirect URIs**: not needed for the ID-token (GIS button) flow; required only if
    you use the redirect/code flow (e.g. `https://<server>/api/auth/google/callback`).
 6. Copy the **Client ID** (and **Client Secret** if using the code flow).

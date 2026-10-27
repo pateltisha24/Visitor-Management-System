@@ -71,7 +71,8 @@ overall mood, by hour, by day, by camera, with a plain-English AI summary on top
    any future producer (e.g. a browser camera) all emit the same `Reading` shape,
    defined once and validated on both sides.
 
-**Hosting change (needed for Phase 1):** keep the dashboard on Vercel, move the API
+**Hosting (decided 2026-10-27):** everything runs as one Render service (dashboard, API,
+WebSockets, scheduler) and the Vercel deployment is retired. *Original note:* keep the dashboard on Vercel, move the API
 to an always-on host that supports WebSockets (Railway, Render paid tier, or
 Fly.io — a few dollars a month). Avoid free tiers that sleep: a 30-second cold start
 in the middle of a demo is worse than polling. *(Alternative: stay on Vercel and use

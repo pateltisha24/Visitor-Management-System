@@ -19,7 +19,7 @@ const fadeUp = {
 
 const steps = [
   { icon: FiVideo, title: "Connect any camera", body: "Point a webcam or existing CCTV/RTSP stream at your space. No new hardware." },
-  { icon: FiCpu, title: "Analyse on the edge", body: "Faces are detected and scored for age, gender and emotion in real time — frames never leave the room." },
+  { icon: FiCpu, title: "Analyse on the edge", body: "Faces are detected and scored for age, gender and emotion in real time — video stays on your machine unless you turn on the live preview." },
   { icon: FiBarChart2, title: "Decide from the dashboard", body: "Aggregated, anonymous insight streams to a live dashboard you can read at a glance." },
 ];
 

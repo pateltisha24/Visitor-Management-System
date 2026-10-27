@@ -107,7 +107,7 @@ CAMERA_NAME = os.environ.get("VMS_CAMERA_NAME", "Main camera")
 # ---- Live link (camera status, events, opt-in preview) ----
 # A WebSocket to the server's /ws/agent, authenticated with INGEST_API_KEY. By
 # default it's derived from VMS_INGEST_URL (https://host/api/ingest ->
-# wss://host/ws/agent). Needs a long-running server; on Vercel it just retries.
+# wss://host/ws/agent). If the server is unreachable it just keeps retrying.
 LIVE_URL = os.environ.get("VMS_LIVE_URL", "")
 if not LIVE_URL and INGEST_URL:
     LIVE_URL = INGEST_URL.replace("https://", "wss://", 1).replace("http://", "ws://", 1)

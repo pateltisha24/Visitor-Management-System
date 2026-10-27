@@ -29,7 +29,7 @@ const connectDb = async () => {
         await mongoose.connect(URI);
         console.log("Connection successful to DB");
     } catch (error) {
-        // Don't kill the process: on serverless (Vercel) and during local dev we
+        // Don't kill the process: during deploys and local dev we
         // still want the server to boot; Mongoose will retry on the next request.
         console.error("Database connection failed:", error.message);
     }

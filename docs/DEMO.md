@@ -17,17 +17,15 @@ that has nothing installed.
 ## 1. One-time: deploy to Render (dashboard + API on one URL)
 
 The live parts (instant updates, camera status, video preview) use WebSockets,
-which Vercel's serverless functions can't hold open, so the demo runs on an
-always-on host. The root [`Dockerfile`](../Dockerfile) builds the dashboard into the
-API image, so **one URL serves the dashboard, the API and the live connection**:
-nothing to change on Vercel, no cross-origin setup, and no Vercel login needed on
-the presenting laptop. (Your existing Vercel deployment keeps working as before.)
+which need an always-on server. The root [`Dockerfile`](../Dockerfile) builds the dashboard into the
+API image, so **one URL serves the dashboard, the API and the live connection**,
+with no cross-origin setup and nothing to sign in to on the presenting laptop.
 
 In Render: **New → Web Service → GitHub** → `pateltisha24/Visitor-Management-System`, then:
 
 | Setting | Value |
 |---|---|
-| Branch | `phase-1-live-demo` (or `main` once merged) |
+| Branch | `main` |
 | Root Directory | leave empty (the Dockerfile is at the repo root) |
 | Language | Docker (detected from the Dockerfile) |
 | Instance type | **Starter or above**. Free instances sleep when idle, and a ~1 min cold start mid-demo is worse than no realtime |
@@ -37,7 +35,7 @@ Environment variables (Render sets `PORT` itself):
 
 | Variable | Value |
 |---|---|
-| `MONGODB_URI` | your Atlas connection string. Atlas → Network Access must allow Render (e.g. `0.0.0.0/0`, as Vercel already needs) |
+| `MONGODB_URI` | your Atlas connection string. Atlas → Network Access must allow Render (e.g. `0.0.0.0/0`) |
 | `JWT_SECRET_KEY` | same value as in `server/.env`, so existing accounts keep working |
 | `INGEST_API_KEY` | same value as in `server/.env` (the pipeline on the Mac uses it too) |
 | `GROQ_API_KEY`, `AI_ENC_SECRET` | for the AI summary, as in `SETUP.md` |
@@ -169,7 +167,7 @@ Record one complete rehearsal (QuickTime → New Screen Recording) as the last-r
 
 | Symptom | Cause / fix |
 |---|---|
-| Subtitle says "polling every 10s" | You're on the Vercel dashboard instead of the Render URL, or the Render service is down/redeploying. Open the browser console; a failed `wss://…/ws/dashboard` names the host it tried |
+| Subtitle says "polling every 10s" | The Render service is down or redeploying. Open the browser console; a failed `wss://…/ws/dashboard` names the host it tried |
 | "No cameras online" | Pipeline not running, or it printed `live: can't reach …`: check `VMS_INGEST_URL` and that `VMS_INGEST_API_KEY` matches the server |
 | Camera online but "Preview is off" | Start that pipeline with `--allow-preview` |
 | `save failed: 401` | API key mismatch between `model/.env` and the server |
