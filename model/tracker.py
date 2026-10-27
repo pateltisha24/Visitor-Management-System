@@ -11,7 +11,7 @@ import numpy as np
 
 class Track:
     __slots__ = ("id", "centroid", "bbox", "disappeared", "frames_seen",
-                 "max_concurrent", "samples", "embedding")
+                 "max_concurrent", "samples", "embeddings")
 
     def __init__(self, track_id, centroid, bbox):
         self.id = track_id
@@ -21,12 +21,22 @@ class Track:
         self.frames_seen = 1
         self.max_concurrent = 1          # peak simultaneous faces while visible
         self.samples = {"age": [], "gender": [], "emotion": []}
-        self.embedding = None            # face embedding for same-day re-ID (lazy)
+        self.embeddings = []             # face embeddings for same-day re-ID, one per sample
 
     def add_sample(self, age, gender, emotion):
         self.samples["age"].append(age)
         self.samples["gender"].append(gender)
         self.samples["emotion"].append(emotion)
+
+    @property
+    def embedding(self):
+        """The track's re-ID embedding: the normalised mean of its samples, so one
+        poor frame (a face half out of view, motion blur) can't decide the match."""
+        if not self.embeddings:
+            return None
+        mean = np.mean(np.asarray(self.embeddings, np.float32), axis=0)
+        n = np.linalg.norm(mean)
+        return mean / n if n > 0 else None
 
     @property
     def sample_count(self):

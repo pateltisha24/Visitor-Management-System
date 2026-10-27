@@ -65,17 +65,18 @@ Create `model/.env`:
 VMS_STORAGE=http
 VMS_INGEST_URL=https://<your-service>.onrender.com/api/ingest
 VMS_INGEST_API_KEY=<same INGEST_API_KEY as the server>
-VMS_ENGINE=deepface
 ```
 
-**Download the models at home, not on demo day.** The first DeepFace run downloads
-about 1.2 GB of weights. This fetches everything (including the re-ID model) while it
-prints "Loading models..."; once the camera window opens, press `q`:
+**Get the models ready at home, not on demo day.** YuNet, HSEmotion and SFace (~70 MB)
+download on the first run; MiVOLO is exported once with
+[`tools/export_mivolo.py`](../model/tools/export_mivolo.py) (its docstring has the steps).
+Then check everything works offline:
 
 ```bash
-python pipeline.py --reid --no-db --no-live
+python selftest.py
 ```
 
+It should print a face's age group, gender and emotion using the `mivolo` engine.
 The pipeline warms the models up at every start, so the first visitor isn't delayed.
 On demo day, wait for **"Pipeline running"** before you start presenting.
 
@@ -127,8 +128,8 @@ that camera prints `live: preview started`.
 - `--profile demo` makes a visitor land in about 1–2 s (fewer samples per face).
 - `--reid` gives the "returning visitor, not double-counted" moment. Keep it on the
   Front desk only.
-- If the Mac struggles running two DeepFace processes, add `--engine opencv` to the
-  Store entrance command (lighter, slightly less accurate).
+- Analysis runs on a background thread, so the preview stays smooth; if the Mac
+  still struggles with two cameras, raise `VMS_ANALYZE_EVERY` for the Store entrance.
 
 ## 6. Run sheet
 
@@ -172,7 +173,7 @@ Record one complete rehearsal (QuickTime → New Screen Recording) as the last-r
 | Camera online but "Preview is off" | Start that pipeline with `--allow-preview` |
 | `save failed: 401` | API key mismatch between `model/.env` and the server |
 | Faces boxed but never counted | Too few samples: hold still a moment, improve lighting, or move closer |
-| Everyone counted twice after stepping out | Add `--reid` (DeepFace engine only) |
+| Everyone counted twice after stepping out | Add `--reid` (uses SFace; needs the default YuNet detector) |
 | "Could not open video source" | Wrong `--device` index (`--list-devices`), or the IP-camera URL isn't reachable from the Mac |
 
 ## 9. Rehearse entirely on the Mac (no cloud)

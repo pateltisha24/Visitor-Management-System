@@ -19,6 +19,7 @@ Live demo (see docs/DEMO.md): one process per camera, tagged and previewable:
       --source file --file entrance.mp4 --realtime --allow-preview
 """
 import argparse
+import queue
 import re
 import threading
 import time
@@ -110,6 +111,94 @@ def detect_faces(net, frame, conf_threshold=0.7):
     return boxes
 
 
+class AnalysisWorker:
+    """Runs face analysis on a background thread.
+
+    The models take ~100-250 ms per face; doing that inside the frame loop would
+    freeze detection, tracking and the dashboard preview each time. Instead the
+    loop hands crops over (at most one in flight per track) and picks up the
+    results on a later frame. pending()/submit()/collect() are main-thread only.
+    """
+
+    def __init__(self, analyzer, embed, max_pending=4):
+        self._analyzer, self._embed = analyzer, embed
+        self._jobs, self._done = queue.Queue(), queue.Queue()
+        self._pending = set()
+        self._max_pending = max_pending
+        threading.Thread(target=self._run, name="analysis", daemon=True).start()
+
+    def pending(self, track_id):
+        return track_id in self._pending
+
+    def submit(self, track_id, face, frame, box, landmarks, want_embedding):
+        if track_id in self._pending or len(self._pending) >= self._max_pending:
+            return False
+        self._pending.add(track_id)
+        self._jobs.put((track_id, face, frame, box, landmarks, want_embedding))
+        return True
+
+    def _run(self):
+        while True:
+            job = self._jobs.get()
+            if job is None:
+                return
+            track_id, face, frame, box, landmarks, want_embedding = job
+            try:
+                result = self._analyzer.analyze(face)
+                embedding = self._embed(frame, box, landmarks, face) if want_embedding else None
+            except Exception as e:
+                print(f"analysis failed: {e}")
+                result = embedding = None
+            self._done.put((track_id, result, embedding))
+
+    def collect(self):
+        """Finished (track_id, result, embedding) tuples since the last call."""
+        out = []
+        while True:
+            try:
+                item = self._done.get_nowait()
+            except queue.Empty:
+                return out
+            self._pending.discard(item[0])
+            out.append(item)
+
+    def wait_idle(self, timeout=10.0):
+        """Collect until nothing is in flight (used on shutdown)."""
+        out, deadline = [], time.time() + timeout
+        while self._pending and time.time() < deadline:
+            out.extend(self.collect())
+            time.sleep(0.01)
+        return out + self.collect()
+
+    def close(self):
+        self._jobs.put(None)
+
+
+def make_detector(name):
+    """Return detect(frame) -> [(box, landmarks or None), ...] for the chosen detector.
+
+    "yunet" (default) is the modern OpenCV detector and also returns 5 facial
+    landmarks, used to rotate faces upright before analysis. "ssd" is the
+    original OpenCV ResNet-SSD (no landmarks), kept as a fallback.
+    """
+    if name == "yunet":
+        from face_models import YuNetDetector
+        yunet = YuNetDetector()
+        return lambda frame: [(f["box"], f["landmarks"]) for f in yunet.detect(frame)]
+    net = cv2.dnn.readNet(config.FACE_MODEL, config.FACE_PROTO)
+    return lambda frame: [(b, None) for b in detect_faces(net, frame)]
+
+
+def face_crop_for_analysis(frame, box, landmarks):
+    """The crop the attribute models see: upright (aligned) when landmarks are known."""
+    if landmarks is not None and config.ALIGN_FACES:
+        from face_models import align_face
+        face = align_face(frame, box, landmarks)
+        if face.size:
+            return face
+    return crop(frame, box)
+
+
 def crop(frame, box, pad=20):
     x1, y1, x2, y2 = box
     h, w = frame.shape[:2]
@@ -154,7 +243,12 @@ def main():
     ap.add_argument("--file", help="Path to a video file (with --source file)")
     ap.add_argument("--rtsp-url", default=config.RTSP_URL, help="RTSP URL (with --source rtsp)")
     ap.add_argument("--device", type=int, default=0, help="Webcam index")
-    ap.add_argument("--engine", choices=["deepface", "opencv"], default=config.ENGINE)
+    ap.add_argument("--engine", choices=["mivolo", "deepface", "opencv"], default=config.ENGINE,
+                    help="Age/gender engine")
+    ap.add_argument("--emotion", choices=["hsemotion", "engine"], default=config.EMOTION_BACKEND,
+                    help="Emotion model: hsemotion (default) or the engine's own")
+    ap.add_argument("--detector", choices=["yunet", "ssd"], default=config.DETECTOR,
+                    help="Face detector: yunet (default, with landmarks for alignment) or the original ssd")
     ap.add_argument("--no-db", action="store_true", help="Don't persist readings")
     ap.add_argument("--no-show", action="store_true", help="Run headless (no window)")
     ap.add_argument("--reid", action="store_true",
@@ -202,8 +296,8 @@ def main():
     else:
         src, threaded = args.device, True
 
-    face_net = cv2.dnn.readNet(config.FACE_MODEL, config.FACE_PROTO)
-    analyzer = FaceAnalyzer(engine=args.engine)
+    detect = make_detector(args.detector)
+    analyzer = FaceAnalyzer(engine=args.engine, emotion=args.emotion)
     tracker = CentroidTracker(config.TRACK_MAX_DISAPPEARED, config.TRACK_MAX_DISTANCE)
     store = None if args.no_db else storage.get_store()
 
@@ -211,18 +305,28 @@ def main():
     # being counted twice if they leave and return the same day. Embeddings are
     # held in memory only and cleared at date rollover — nothing biometric is
     # written to disk.
-    reid = None
+    reid = embed = None
     if args.reid or config.REID_ENABLED:
-        if analyzer.engine != "deepface":
-            print("Re-ID requested but it needs the DeepFace engine; continuing without re-ID.")
+        if config.REID_MODEL.lower() == "sface":
+            if args.detector != "yunet":
+                print("Re-ID with SFace needs the YuNet detector (its landmarks); continuing without re-ID.")
+            else:
+                from face_models import SFaceEmbedder
+                sface = SFaceEmbedder()
+                embed = lambda frame, box, landmarks, face: (  # noqa: E731
+                    sface.embed(frame, box, landmarks) if landmarks is not None else None)
+        elif analyzer.engine != "deepface":
+            print(f"Re-ID with {config.REID_MODEL} needs the DeepFace engine; continuing without re-ID.")
         else:
+            embed = lambda frame, box, landmarks, face: analyzer.embed(face)  # noqa: E731
+        if embed is not None:
             from reid import ReIDGallery
             reid = ReIDGallery(config.REID_THRESHOLD)
             print(f"Re-ID on (model={config.REID_MODEL}, cosine threshold={config.REID_THRESHOLD}). "
                   "Same-day returning visitors won't be double-counted.")
 
     print("Loading models...")
-    analyzer.warm_up(with_embedding=reid is not None)
+    analyzer.warm_up(with_embedding=reid is not None and config.REID_MODEL.lower() != "sface")
 
     live = None
     if not args.no_live:
@@ -238,6 +342,8 @@ def main():
     is_file = args.source == "file"
     stream = VideoStream(src, threaded, paced=is_file and args.realtime, loop=is_file and args.loop)
 
+    analysis = AnalysisWorker(analyzer, embed)
+    leaving = {}             # tracks that left the frame, waiting on an in-flight analysis
     counted = set()          # track ids already finalised (dedup)
     visitors = 0             # unique people counted (re-ID returns excluded)
     last_label = {}          # track id -> "gender, age, emotion" for overlay
@@ -273,7 +379,21 @@ def main():
         except Exception as e:
             print(f"save failed: {e}")
 
+    def apply_result(track, result, embedding):
+        if result:
+            track.add_sample(*result)
+            # Gender/age shown as the running majority (stable), emotion as it is now.
+            last_label[track.id] = f"{mode(track.samples['gender'])}, {mode(track.samples['age'])}, {result[2]}"
+        if embedding is not None:
+            track.embeddings.append(embedding)
+
+    def finish(track):
+        if track.id not in counted and track.sample_count > 0:
+            persist(track)
+            counted.add(track.id)
+
     print("Pipeline running. Press 'q' to quit.")
+    started = time.time()
     try:
         while True:
             frame, ok = stream.read()
@@ -290,22 +410,29 @@ def main():
             if config.DETECT_WIDTH and frame.shape[1] > config.DETECT_WIDTH:
                 scale = config.DETECT_WIDTH / frame.shape[1]
                 det_frame = cv2.resize(frame, (config.DETECT_WIDTH, int(frame.shape[0] * scale)))
-            boxes = [tuple(int(v / scale) for v in b) for b in detect_faces(face_net, det_frame)]
+            detections = [(tuple(int(v / scale) for v in box), None if lm is None else lm / scale)
+                          for box, lm in detect(det_frame)]
+            boxes = [box for box, _ in detections]
+            landmarks_by_box = dict(detections)
 
             tracks = tracker.update(boxes)
+
+            # Results of background analyses go back to their tracks.
+            for track_id, result, embedding in analysis.collect():
+                t = tracks.get(track_id) or leaving.get(track_id)
+                if t is not None:
+                    apply_result(t, result, embedding)
 
             # Amortised analysis: only some frames, only tracks still gathering samples.
             if frame_idx % config.ANALYZE_EVERY_N_FRAMES == 0:
                 for t in tracks.values():
-                    if t.sample_count < config.MAX_SAMPLES_PER_TRACK:
-                        face_crop = crop(frame, t.bbox)
-                        result = analyzer.analyze(face_crop)
-                        if result:
-                            t.add_sample(*result)
-                            last_label[t.id] = f"{result[1]}, {result[0]}, {result[2]}"
-                        # Compute the face embedding once per track (for same-day re-ID).
-                        if reid is not None and t.embedding is None:
-                            t.embedding = analyzer.embed(face_crop)
+                    # Skip tracks not seen this frame: their box is where the face *was*.
+                    if t.disappeared == 0 and t.sample_count < config.MAX_SAMPLES_PER_TRACK \
+                            and not analysis.pending(t.id):
+                        lm = landmarks_by_box.get(t.bbox)
+                        # Every sample also gets a re-ID embedding; the track averages them.
+                        analysis.submit(t.id, face_crop_for_analysis(frame, t.bbox, lm), frame, t.bbox, lm,
+                                        want_embedding=reid is not None)
 
             # Persist a visitor once they have enough samples (prompt, deduped).
             for t in tracks.values():
@@ -313,11 +440,14 @@ def main():
                     persist(t)
                     counted.add(t.id)
 
-            # Persist anyone who left without reaching the sample target.
+            # Persist anyone who left without reaching the sample target, once any
+            # analysis still running for them has come back.
             for t in tracker.drain_finalised():
-                if t.id not in counted and t.sample_count > 0:
-                    persist(t)
-                    counted.add(t.id)
+                leaving[t.id] = t
+            for track_id, t in list(leaving.items()):
+                if not analysis.pending(track_id):
+                    del leaving[track_id]
+                    finish(t)
 
             fps_n += 1
             if time.time() - fps_t0 >= 1.0:
@@ -339,16 +469,22 @@ def main():
                     if cv2.waitKey(1) & 0xFF == ord("q"):
                         break
     finally:
-        # Flush any still-tracked visitors.
-        for t in tracker.flush_all():
-            if t.id not in counted and t.sample_count > 0:
-                persist(t)
-                counted.add(t.id)
+        # Flush any still-tracked visitors, after in-flight analyses finish.
+        remaining = {t.id: t for t in tracker.flush_all()}
+        remaining.update(leaving)
+        for track_id, result, embedding in analysis.wait_idle():
+            if track_id in remaining:
+                apply_result(remaining[track_id], result, embedding)
+        for t in remaining.values():
+            finish(t)
+        analysis.close()
         stream.release()
         if live:
             live.close()
         cv2.destroyAllWindows()
-        print(f"Done. Total unique visitors counted: {visitors}")
+        elapsed = max(time.time() - started, 1e-6)
+        print(f"Done. Total unique visitors counted: {visitors} "
+              f"({frame_idx} frames in {elapsed:.0f}s, {frame_idx / elapsed:.1f} fps)")
 
 
 if __name__ == "__main__":

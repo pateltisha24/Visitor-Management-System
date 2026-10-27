@@ -1,10 +1,11 @@
 """Validate the computer-vision models on a single image — no camera needed.
 
-Runs OpenCV's SSD face detector, then the age/gender/emotion analysis with the
-DeepFace engine and/or the legacy OpenCV engine, and prints the predictions.
+Runs the configured face detector (YuNet by default), then age/gender/emotion
+analysis with the chosen engine(s), and prints the predictions and timings.
 
 Usage:
-  python selftest.py                       # bundled sample_face.jpg, both engines
+  python selftest.py                       # bundled sample_face.jpg, default engine (mivolo)
+  python selftest.py --engine all          # every engine (deepface/opencv need requirements-deepface.txt)
   python selftest.py --image path/to.jpg   # your own image
   python selftest.py --engine deepface     # one engine only
 """
@@ -15,7 +16,7 @@ import time
 import cv2
 
 import config
-from pipeline import detect_faces, crop
+from pipeline import crop, make_detector
 from face_analyzer import FaceAnalyzer
 
 
@@ -25,11 +26,10 @@ def run(image_path, engines):
         raise SystemExit(f"Could not read image: {image_path}")
 
     h, w = frame.shape[:2]
-    face_net = cv2.dnn.readNet(config.FACE_MODEL, config.FACE_PROTO)
-    boxes = detect_faces(face_net, frame)
+    boxes = [box for box, _ in make_detector(config.DETECTOR)(frame)]
 
     print(f"Image           : {image_path} ({w}x{h})")
-    print(f"Face detector   : OpenCV SSD DNN")
+    print(f"Face detector   : {config.DETECTOR}")
     print(f"Faces detected  : {len(boxes)}")
     if not boxes:
         print("\nNo face detected — try an image with a clear, front-facing face.")
@@ -60,7 +60,7 @@ def run(image_path, engines):
 if __name__ == "__main__":
     ap = argparse.ArgumentParser(description="Validate the CV models on a single image.")
     ap.add_argument("--image", default=os.path.join(config.BASE_DIR, "sample_face.jpg"))
-    ap.add_argument("--engine", choices=["deepface", "opencv", "both"], default="both")
+    ap.add_argument("--engine", choices=["mivolo", "deepface", "opencv", "all"], default=config.ENGINE)
     args = ap.parse_args()
-    engines = ["deepface", "opencv"] if args.engine == "both" else [args.engine]
+    engines = ["mivolo", "deepface", "opencv"] if args.engine == "all" else [args.engine]
     run(args.image, engines)

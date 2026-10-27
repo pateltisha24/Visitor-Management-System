@@ -21,18 +21,16 @@ Datasets (download once, keep outside the repo):
       "https://huggingface.co/api/datasets/flwrlabs/celeba/parquet/img_align+identity+attr/test/0.parquet"
 
 Usage (needs `pip install -r requirements-dev.txt`):
-  python benchmark.py fairface --data fairface_val.parquet --limit 1400 --variant pipeline-deepface
-  python benchmark.py fer --data fer2013_test.parquet --limit 2000 --variant pipeline-deepface
-  python benchmark.py fairface ... --variant aligned-retinaface --out preds.csv
-  python benchmark.py celeba --data celeba_test0.parquet --variant aligned-retinaface+hsemotion
+  python benchmark.py fairface --data fairface_val.parquet               # what runs today
+  python benchmark.py fairface --data fairface_val.parquet --detector yunet --align
+  python benchmark.py celeba --data celeba_test0.parquet --detector yunet --align --emotion hsemotion
+  python benchmark.py fer --data fer2013_test.parquet --emotion hsemotion --out preds.csv
 
-Variants:
-  pipeline-deepface   exactly what runs today with VMS_ENGINE=deepface
-  pipeline-opencv     exactly what runs today with VMS_ENGINE=opencv (legacy)
-  aligned-<backend>   SSD crop, then DeepFace re-detects and *aligns* the face with
-                      <backend> (retinaface, opencv, mtcnn, yunet, ...) before analysis
-  <variant>+hsemotion same, but emotion comes from HSEmotion (AffectNet-trained,
-                      ONNX; `pip install --no-deps hsemotion-onnx "onnx<1.17"`)
+Options pick each stage of the pipeline independently:
+  --detector ssd|yunet        face detector (ssd = current OpenCV SSD, yunet = face_models.YuNetDetector)
+  --align                     rotate the face upright with YuNet's eye landmarks before analysis
+  --engine deepface|opencv|mivolo  age/gender(/emotion) engine in face_analyzer.FaceAnalyzer
+  --emotion engine|hsemotion  keep the engine's emotion, or use face_models.HSEmotion
 """
 import argparse
 import csv
@@ -83,73 +81,49 @@ def stratified(rows, key, limit, seed=0):
     return out
 
 
-# ---- Predictors: BGR image -> dict(age=?, gender=?, emotion=?, detected=bool) ----
+# ---- Predictor: BGR image -> dict(age=?, gender=?, emotion=?, detected=bool) ----
 
-def make_predictor(variant, face_net):
-    if variant.endswith("+hsemotion"):
-        return with_hsemotion(make_predictor(variant[: -len("+hsemotion")], face_net), face_net)
-    if variant in ("pipeline-deepface", "pipeline-opencv"):
-        analyzer = FaceAnalyzer(engine=variant.split("-", 1)[1])
-        if analyzer.engine != variant.split("-", 1)[1]:
-            raise SystemExit(f"{variant}: engine unavailable")
-
-        def predict(img, detect=True):
-            face = largest_face_crop(face_net, img) if detect else img
-            if face is None:
-                return {"detected": False}
-            res = analyzer.analyze(face)
-            if not res:
-                return {"detected": True}
-            age, gender, emotion = res
-            return {"detected": True, "age": age, "gender": gender, "emotion": emotion}
-        return predict
-
-    if variant.startswith("aligned-"):
-        from deepface import DeepFace
-        backend = variant.split("-", 1)[1]
-
-        def predict(img, detect=True):
-            face = largest_face_crop(face_net, img) if detect else img
-            if face is None:
-                return {"detected": False}
-            try:
-                res = DeepFace.analyze(face, actions=("age", "gender", "emotion"), detector_backend=backend,
-                                       align=True, enforce_detection=False, silent=True)
-            except Exception:
-                return {"detected": True}
-            r = max(res, key=lambda x: x["region"]["w"] * x["region"]["h"]) if isinstance(res, list) else res
-            gender = "Male" if str(r["dominant_gender"]).lower().startswith("m") else "Female"
-            return {"detected": True, "age": age_to_bucket(int(r["age"])), "age_raw": int(r["age"]),
-                    "gender": gender, "emotion": str(r["dominant_emotion"]).capitalize()}
-        return predict
-
-    raise SystemExit(f"Unknown variant {variant}")
+def describe(args):
+    return f"{args.detector}{'+align' if args.align else ''}/{args.engine}/{args.emotion}"
 
 
-def with_hsemotion(base, face_net, model_name="enet_b2_7"):
-    """Wrap a predictor so emotion comes from HSEmotion, run on the same SSD crop."""
-    import urllib.request  # noqa: F401  (hsemotion_onnx uses it without importing it)
-    from hsemotion_onnx.facial_emotions import HSEmotionRecognizer
-    rec = HSEmotionRecognizer(model_name=model_name)
-    names = {"Anger": "Angry", "Contempt": "Contempt", "Disgust": "Disgust", "Fear": "Fear",
-             "Happiness": "Happy", "Neutral": "Neutral", "Sadness": "Sad", "Surprise": "Surprise"}
+def build_predictor(args):
+    if args.align and args.detector != "yunet":
+        raise SystemExit("--align needs --detector yunet (it uses YuNet's eye landmarks)")
+    if args.detector == "yunet":
+        from face_models import YuNetDetector, align_face
+        yunet = YuNetDetector()
+    else:
+        face_net = cv2.dnn.readNet(config.FACE_MODEL, config.FACE_PROTO)
+
+    def find_face(img):
+        if args.detector == "ssd":
+            boxes = detect_faces(face_net, img)
+            return crop(img, max(boxes, key=area)) if boxes else None
+        faces = yunet.detect(img)
+        if not faces:
+            return None
+        f = max(faces, key=lambda f: area(f["box"]))
+        return align_face(img, f["box"], f["landmarks"]) if args.align else crop(img, f["box"])
+
+    analyzer = FaceAnalyzer(engine=args.engine, emotion=args.emotion)
+    if analyzer.engine != args.engine:
+        raise SystemExit(f"engine '{args.engine}' unavailable")
 
     def predict(img, detect=True):
-        out = base(img, detect)
-        face = largest_face_crop(face_net, img) if detect else img
-        if out.get("detected") and face is not None and face.size:
-            emo, _ = rec.predict_emotions(cv2.cvtColor(face, cv2.COLOR_BGR2RGB), logits=True)
-            out["emotion"] = names[emo]
-        return out
+        face = find_face(img) if detect else img
+        if face is None or face.size == 0:
+            return {"detected": False}
+        res = analyzer.analyze(face)
+        if not res:
+            return {"detected": True}
+        age, gender, emotion = res
+        return {"detected": True, "age": age, "gender": gender, "emotion": emotion}
     return predict
 
 
-def largest_face_crop(face_net, img):
-    boxes = detect_faces(face_net, img)
-    if not boxes:
-        return None
-    box = max(boxes, key=lambda b: (b[2] - b[0]) * (b[3] - b[1]))
-    return crop(img, box)
+def area(box):
+    return (box[2] - box[0]) * (box[3] - box[1])
 
 
 # ---- Benchmarks ----
@@ -283,19 +257,23 @@ def main():
     ap = argparse.ArgumentParser(description="Score FaceSense's attribute models on labeled datasets")
     ap.add_argument("dataset", choices=["fairface", "fer", "celeba"])
     ap.add_argument("--data", required=True, help="Path to the dataset's parquet file")
-    ap.add_argument("--variant", default="pipeline-deepface")
+    ap.add_argument("--detector", choices=["ssd", "yunet"], default="ssd")
+    ap.add_argument("--align", action="store_true")
+    ap.add_argument("--engine", choices=["deepface", "opencv", "mivolo"], default="deepface")
+    ap.add_argument("--emotion", choices=["engine", "hsemotion"], default="engine")
     ap.add_argument("--limit", type=int, default=1400, help="Faces to score (stratified sample)")
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--out", help="Write per-face predictions to this CSV")
     ap.add_argument("--report", help="Write the summary to this JSON file")
     args = ap.parse_args()
 
-    face_net = cv2.dnn.readNet(config.FACE_MODEL, config.FACE_PROTO)
-    predict = make_predictor(args.variant, face_net)
-    print(f"{args.dataset} / {args.variant} / {args.limit} faces")
+    predict = build_predictor(args)
+    print(f"{args.dataset} / {describe(args)} / {args.limit} faces")
     runner = {"fairface": run_fairface, "fer": run_fer, "celeba": run_celeba}[args.dataset]
+    t0 = time.time()
     preds, rep = runner(args, predict)
-    rep = {"dataset": args.dataset, "variant": args.variant, **rep}
+    rep = {"dataset": args.dataset, "variant": describe(args),
+           "ms_per_face": round((time.time() - t0) / max(1, len(preds)) * 1000), **rep}
     print(json.dumps(rep, indent=2))
     if args.report:
         with open(args.report, "w") as f:

@@ -1,4 +1,5 @@
-# Extra tools for development (benchmark.py). Install on top of requirements.txt.
--r requirements.txt
+# Extra tools for development. benchmark.py compares against the DeepFace
+# engines too, so this includes them.
+-r requirements-deepface.txt
 # Reads the benchmark datasets (parquet). <17 keeps NumPy 1.x compatibility.
 pyarrow>=14,<17

@@ -1,13 +1,12 @@
-# FaceSense CV pipeline dependencies.
+# FaceSense CV pipeline dependencies (default models: YuNet, MiVOLO, HSEmotion,
+# SFace; see face_models.py). Model weights download on first run, except
+# MiVOLO's, which is exported once with tools/export_mivolo.py.
 opencv-python>=4.8,<5
+# <2 keeps the optional TensorFlow engines (requirements-deepface.txt) installable.
 numpy>=1.24,<2
 
-# Modern analysis engine (default). Downloads its pretrained weights from public
-# URLs on first run. Pulls in TensorFlow; tf-keras keeps it compatible with the
-# Keras-2 style API DeepFace and the legacy emotion model (model.h5) expect.
-deepface>=0.0.93
-tensorflow>=2.13,<2.17
-tf-keras>=2.15
+# Runs MiVOLO (age/gender) and HSEmotion; MiVOLO's export uses ONNX opset 18.
+onnxruntime>=1.17
 
 # MongoDB (default storage) and HTTP ingestion storage.
 pymongo>=4.6

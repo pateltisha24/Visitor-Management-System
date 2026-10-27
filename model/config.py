@@ -30,6 +30,9 @@ GENDER_PROTO = _p("gender_deploy.prototxt")
 GENDER_MODEL = _p("gender_net.caffemodel")
 EMOTION_MODEL = _p("model.h5")
 
+# Downloaded model weights (YuNet, HSEmotion; see face_models.py) are cached here.
+MODEL_CACHE = os.environ.get("VMS_MODEL_CACHE", os.path.join(os.path.expanduser("~"), ".facesense", "models"))
+
 # ---- Inference constants ----
 MODEL_MEAN_VALUES = (78.4263377603, 87.7689143744, 114.895847746)
 AGE_LIST = ['(0-10)', '(10-20)', '(20-30)', '(30-50)', '(50-60)', '(60-80)']
@@ -50,9 +53,27 @@ RTSP_URL = os.environ.get("RTSP_URL", "")
 WRITE_INTERVAL_SEC = float(os.environ.get("VMS_WRITE_INTERVAL", "8"))
 
 # ---- Pipeline / performance tuning ----
-# Which analysis engine to use: "deepface" (modern, better) or "opencv"
-# (the legacy Caffe age/gender + Keras emotion nets, faster/lighter).
-ENGINE = os.environ.get("VMS_ENGINE", "deepface").lower()
+# Model choices below were picked by measurement (benchmark.py; results in
+# docs/MODEL_AUDIT.md). Every older option is kept, one setting away.
+
+# Age/gender engine: "mivolo" (MiVOLO v2, 2024, via ONNX: 96.9% gender and 68%
+# exact age group on FairFace), "deepface" (80.7% / 45%; misgenders ~1 in 3
+# women) or "opencv" (the legacy Caffe nets). deepface/opencv need
+# requirements-deepface.txt (TensorFlow).
+ENGINE = os.environ.get("VMS_ENGINE", "mivolo").lower()
+
+# Emotion model: "hsemotion" (AffectNet-trained; reads 95% of smiling faces as
+# Happy vs 63% for DeepFace's) or "engine" (the deepface/opencv engine's own).
+EMOTION_BACKEND = os.environ.get("VMS_EMOTION", "hsemotion").lower()
+
+# Face detector: "yunet" (OpenCV's 2023 detector with 5 landmarks; finds 99.9% of
+# FairFace faces vs 96.6%) or "ssd" (the original 2017 OpenCV ResNet-SSD).
+DETECTOR = os.environ.get("VMS_DETECTOR", "yunet").lower()
+
+# Rotate faces upright with YuNet's eye landmarks before analysis. Off by
+# default: it helped DeepFace (women's gender 68.5% -> 75.7%) but not MiVOLO or
+# HSEmotion, which are trained on ordinary, unrotated face crops.
+ALIGN_FACES = os.environ.get("VMS_ALIGN", "false").lower() in ("1", "true", "yes")
 
 # Tuning profiles. "default" favours accuracy; "demo" favours responsiveness, so a
 # visitor shows up on the dashboard within a second or two of appearing (fewer
@@ -121,14 +142,21 @@ PREVIEW_WIDTH = int(os.environ.get("VMS_PREVIEW_WIDTH", "640"))
 # ---- Same-day face re-identification (opt-in) ----
 # When on, a face embedding is computed per visitor and compared against those
 # already seen *today* (held in memory only, cleared at midnight). This stops the
-# same person being counted twice if they leave and return the same day. Needs
-# the DeepFace engine; nothing biometric is written to disk.
+# same person being counted twice if they leave and return the same day.
+# Nothing biometric is written to disk.
 REID_ENABLED = os.environ.get("VMS_REID", "false").lower() in ("1", "true", "yes")
-# Embedding model (a DeepFace model name). Facenet512 / ArcFace are good choices.
-REID_MODEL = os.environ.get("VMS_REID_MODEL", "Facenet512")
-# Cosine-distance threshold for "same person". MUST match the model: Facenet512
-# ~0.30, ArcFace ~0.68 (DeepFace's recommended verification values).
-REID_THRESHOLD = float(os.environ.get("VMS_REID_THRESHOLD", "0.30"))
+# Embedding model: "sface" (OpenCV, needs the YuNet detector) or a DeepFace model
+# name such as "Facenet512" (needs the DeepFace engine).
+REID_MODEL = os.environ.get("VMS_REID_MODEL", "sface")
+# Cosine-distance threshold for "same person"; it MUST match the model.
+# sface 0.50: on CelebA identity pairs it re-matched 76% of same-person photo
+# pairs (taken years apart; same-day is easier), while wrongly merging only ~0.6%
+# of new visitors on a 300-visitor day. OpenCV's generic 0.637 would merge ~40%
+# at that volume, because each new face is compared against everyone seen today.
+# (Facenet512 at DeepFace's 0.30 re-matched only 36% of same-person pairs.)
+_REID_DEFAULT_THRESHOLD = {"sface": "0.50", "facenet512": "0.30", "arcface": "0.68"}
+REID_THRESHOLD = float(os.environ.get("VMS_REID_THRESHOLD",
+                                      _REID_DEFAULT_THRESHOLD.get(REID_MODEL.lower(), "0.30")))
 
 
 def require_mongo_uri():

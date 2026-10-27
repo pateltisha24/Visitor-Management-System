@@ -1,15 +1,20 @@
 """Age / gender / emotion analysis for a single cropped face.
 
-Two engines:
-  - "deepface": modern, openly-downloadable pretrained models (DeepFace). Gives
-    a real age estimate, gender with confidence and a 7-way emotion read. This is
-    the upgrade over the original 2015 Levi-Hassner Caffe nets.
-  - "opencv":   the legacy OpenCV-DNN Caffe age/gender nets + Keras FER emotion
-    model. Lighter/faster and dependency-free; used as an automatic fallback if
-    DeepFace (and its heavy deps) aren't installed.
+Three engines (benchmark.py measures them; results in docs/MODEL_AUDIT.md):
+  - "mivolo" (default): MiVOLO v2 (2024, Apache-2.0) via ONNX Runtime
+    (face_models.py). 96.9% gender accuracy on FairFace, even across genders and
+    race groups, and no TensorFlow. Emotion always comes from HSEmotion.
+  - "deepface": DeepFace's age/gender/emotion models (needs
+    requirements-deepface.txt). 80.7% gender accuracy; misgenders ~1 in 3 women
+    and skews ages older.
+  - "opencv": the legacy OpenCV-DNN Caffe age/gender nets + Keras FER emotion
+    model (also needs TensorFlow). Fastest, least accurate. Used as a fallback
+    if DeepFace is requested but can't be imported.
 
-Both engines return a normalised tuple: (age_bucket, gender, emotion) using the
-same label vocabulary as config, so the database/dashboard stay unchanged.
+Every engine returns (age_bucket, gender, emotion) in config's label vocabulary,
+so the database and dashboard are unaffected by the choice. Emotion comes from
+HSEmotion by default (VMS_EMOTION=hsemotion), which reads 95% of smiling faces
+as Happy where DeepFace's model manages 63%.
 """
 import cv2
 import numpy as np
@@ -27,8 +32,18 @@ def age_to_bucket(age):
 
 
 class FaceAnalyzer:
-    def __init__(self, engine=None):
+    def __init__(self, engine=None, emotion=None):
         self.engine = (engine or config.ENGINE).lower()
+        self._hsemotion = None
+        # MiVOLO has no emotion output of its own, so it always pairs with HSEmotion.
+        if (emotion or config.EMOTION_BACKEND).lower() == "hsemotion" or self.engine == "mivolo":
+            from face_models import HSEmotion
+            self._hsemotion = HSEmotion()
+            print("FaceAnalyzer: using HSEmotion for emotion.")
+        if self.engine == "mivolo":
+            from face_models import MiVOLO
+            self._mivolo = MiVOLO()
+            print("FaceAnalyzer: using MiVOLO engine (age + gender).")
         if self.engine == "deepface":
             try:
                 from deepface import DeepFace  # noqa: F401
@@ -59,6 +74,8 @@ class FaceAnalyzer:
         self._ageNet.setInput(blob)
         age = self._age_native[self._ageNet.forward()[0].argmax()]
 
+        if self._hsemotion:
+            return age, gender, None
         gray = cv2.cvtColor(face_bgr, cv2.COLOR_BGR2GRAY)
         roi = cv2.resize(gray, (48, 48), interpolation=cv2.INTER_AREA)
         if np.sum([roi]) == 0:
@@ -72,7 +89,7 @@ class FaceAnalyzer:
         # detector_backend="skip" => treat the crop as the face (we already detected it).
         res = self._deepface.analyze(
             face_bgr,
-            actions=("age", "gender", "emotion"),
+            actions=("age", "gender") if self._hsemotion else ("age", "gender", "emotion"),
             detector_backend="skip",
             enforce_detection=False,
             silent=True,
@@ -80,7 +97,7 @@ class FaceAnalyzer:
         r = res[0] if isinstance(res, list) else res
         age = age_to_bucket(int(r["age"]))
         gender = "Male" if str(r["dominant_gender"]).lower().startswith("m") else "Female"
-        emotion = str(r["dominant_emotion"]).capitalize()
+        emotion = None if self._hsemotion else str(r["dominant_emotion"]).capitalize()
         return age, gender, emotion
 
     def analyze(self, face_bgr):
@@ -88,9 +105,16 @@ class FaceAnalyzer:
         if face_bgr is None or face_bgr.size == 0:
             return None
         try:
-            if self.engine == "deepface":
-                return self._analyze_deepface(face_bgr)
-            return self._analyze_opencv(face_bgr)
+            if self.engine == "mivolo":
+                age, gender, _ = self._mivolo.predict(face_bgr)
+                result = (age_to_bucket(age), gender, None)
+            elif self.engine == "deepface":
+                result = self._analyze_deepface(face_bgr)
+            else:
+                result = self._analyze_opencv(face_bgr)
+            if result and self._hsemotion:
+                result = (result[0], result[1], self._hsemotion.predict(face_bgr))
+            return result
         except Exception as e:
             print(f"FaceAnalyzer: analysis failed ({e}).")
             return None

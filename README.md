@@ -73,9 +73,11 @@ CV layer never calls the web server directly (though it *can* push over HTTP; se
         └──────────────────────────▶ Express API ◀────────────────────────┘
 ```
 
-- `**model/**` — Python CV pipeline. OpenCV SSD face detector + a centroid tracker, with
-age/gender/emotion analysis via **DeepFace** (modern pretrained models) or a lightweight
-legacy OpenCV/Keras engine. **Runs on the machine attached to the camera**, not on the server.
+- `**model/**` — Python CV pipeline: **YuNet** face detection + a centroid tracker,
+**MiVOLO v2** age/gender, **HSEmotion** expressions and **SFace** same-day re-ID, all run with
+OpenCV and ONNX Runtime (no TensorFlow). Chosen by measured accuracy: see
+[docs/MODEL_AUDIT.md](docs/MODEL_AUDIT.md). The older DeepFace and OpenCV/Keras engines remain
+as options. **Runs on the machine attached to the camera**, not on the server.
 - `**server/`** — Node/Express + Mongoose API: JWT/bcrypt auth, analytics aggregation,
 BYOK AI, contact form, machine-to-machine ingestion, a realtime WebSocket gateway and an
 in-process daily rollup.
@@ -91,7 +93,7 @@ over WebSockets (polling is the fallback) and runs MongoDB aggregation pipelines
 
 | Layer    | Technologies                                                                                                                                                             |
 | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| CV       | Python, OpenCV (DNN/SSD), DeepFace, TensorFlow/Keras, NumPy, PyMongo                                                                                                     |
+| CV       | Python, OpenCV (YuNet, SFace), ONNX Runtime (MiVOLO, HSEmotion), NumPy, PyMongo; optional DeepFace/TensorFlow                                                                                                     |
 | Backend  | Node.js, Express, Mongoose, JWT, bcryptjs, Zod, Helmet, express-rate-limit, Vercel AI SDK (`ai`, `@ai-sdk/groq` · `openai` · `anthropic`, `@openrouter/ai-sdk-provider`) |
 | Frontend | React 18, Vite, React Router, Recharts, Tailwind CSS, Framer Motion, react-icons, react-toastify                                                                         |
 | Data     | MongoDB Atlas                                                                                                                                                            |
@@ -105,11 +107,17 @@ model/          Python CV pipeline
   config.py         shared config (model paths, env, tuning)
   pipeline.py       main configurable pipeline (webcam / file / RTSP)
   detect.py         minimal single-file reference (legacy engine)
-  face_analyzer.py  DeepFace + legacy OpenCV analysis engines
+  face_models.py    YuNet, MiVOLO, HSEmotion, SFace (ONNX / OpenCV)
+  face_analyzer.py  age/gender/emotion engines (mivolo, deepface, opencv)
   tracker.py        centroid tracker (dedup + group detection)
+  reid.py           in-memory same-day re-identification gallery
+  live.py           live link to the server (status, events, preview)
   storage.py        Mongo / HTTP storage backends
+  benchmark.py      accuracy benchmark on labelled datasets (docs/MODEL_AUDIT.md)
   selftest.py       offline self-check
-  requirements.txt
+  tools/            one-time MiVOLO -> ONNX export
+  tests/            unit tests (python -m unittest discover -s tests)
+  requirements.txt  (+ requirements-deepface.txt, requirements-dev.txt)
 
 server/     Express API
   controllers/  auth, analytics, ingest, insights (AI), cron, contact
@@ -146,19 +154,24 @@ cp .env.example .env                                     # set MONGODB_URI (+ RT
 python pipeline.py                                       # webcam → analyse + write to MongoDB
 ```
 
+YuNet, HSEmotion and SFace download on first run (checksum-verified, into
+`~/.facesense/models`). MiVOLO is exported once to ONNX: follow the steps in
+[`tools/export_mivolo.py`](model/tools/export_mivolo.py) (a throwaway environment with
+PyTorch; the pipeline itself never needs it). Check everything with `python selftest.py`.
+
 Other modes:
 
 ```bash
 python pipeline.py --source file --file clip.mp4         # a video file
 python pipeline.py --source rtsp --rtsp-url rtsp://user:pass@ip:554/stream
 python pipeline.py --no-db                               # display only, don't persist
-python pipeline.py --engine opencv                       # lightweight legacy engine
+python pipeline.py --engine deepface                     # older engine (pip install -r requirements-deepface.txt)
 ```
 
 **How it's fast.** Faces are detected and tracked every frame (cheap), but the heavier
-age/gender/emotion analysis runs only every Nth frame and only until each tracked face has
-enough samples — keeping the live frame rate high (25+ FPS on typical hardware) while every
-visitor still gets analysed. Each unique visitor is written **once** (the modal prediction).
+age/gender/emotion analysis runs on a background thread, only every Nth frame and only until
+each tracked face has enough samples — so video, tracking and the live preview stay at camera
+speed (25 FPS in testing) while every visitor still gets analysed. Each unique visitor is written **once** (the modal prediction).
 
 ### 3. Backend (`server/`)
 
@@ -237,7 +250,9 @@ as GDPR. See the in-app `/privacy` page.
 
 ```bash
 cd client && npm test     # vitest — analytics helpers (ranges, deltas, insights, anomalies)
-cd server && npm test     # node:test — validators, crypto, api-key middleware
+cd server && npm test     # node:test — validators, crypto, api-key middleware, realtime gateway
+cd model && python -m unittest discover -s tests   # tracker, re-ID, background analysis, preprocessing
+cd model && python benchmark.py ...                # model accuracy on labelled datasets (docs/MODEL_AUDIT.md)
 ```
 
 ## Goals & scope

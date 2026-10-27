@@ -301,6 +301,10 @@ practices that make it maintainable.
   builds more trust than hiding it.
 
 ### 6.3 Model quality
+
+**Status (2026-10-27):** benchmark built and first audit done; detector, age/gender,
+emotion and re-ID models replaced based on the results. See [MODEL_AUDIT.md](MODEL_AUDIT.md).
+Remaining items below: CCTV-style footage, and person-level (body) counting.
 - Build a small benchmark set of CCTV-style footage (overhead angles, small faces,
   varied lighting) and measure detection rate, count accuracy, and attribute accuracy.
 - Upgrade the detector (e.g. SCRFD / RetinaFace / YOLO-face) and the tracker (e.g.

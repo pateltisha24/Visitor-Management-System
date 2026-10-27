@@ -1,0 +1,7 @@
+# Optional: the older "deepface" and "opencv" engines (VMS_ENGINE=deepface|opencv)
+# and Facenet512 re-ID. Not needed for the defaults. Pulls in TensorFlow; tf-keras
+# keeps the Keras-2 API that DeepFace and the legacy emotion model (model.h5) use.
+-r requirements.txt
+deepface>=0.0.93
+tensorflow>=2.13,<2.17
+tf-keras>=2.15
