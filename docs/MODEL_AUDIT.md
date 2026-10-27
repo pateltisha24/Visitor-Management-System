@@ -98,6 +98,11 @@ checksum-verified.
 - **Licensing:** HSEmotion's weights are trained on AffectNet (research licence);
   CelebA and FER2013 are research datasets (used here only for evaluation). Check
   with legal before commercial deployment.
+- **A saved reading's emotion is the visitor's expression on arrival** (the majority
+  of their first few samples), so a visitor is counted within a second or two. The
+  live label keeps updating afterwards (`VMS_EMOTION_REFRESH_EVERY`), but the saved
+  value doesn't; recording mood over the whole visit would mean finalising readings
+  when people leave.
 - Not yet compared: MiVOLO with body crops (it can use them, and they help when
   faces are small), and person-level counting for people facing away from the camera.
 

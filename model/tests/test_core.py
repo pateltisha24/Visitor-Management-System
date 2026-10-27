@@ -65,6 +65,9 @@ class FakeAnalyzer:
         time.sleep(self.delay)
         return ("(20-30)", "Female", "Happy")
 
+    def emotion(self, face):
+        return "Sad"
+
 
 class AnalysisWorkerTest(unittest.TestCase):
     def test_results_come_back_tagged_with_their_track(self):
@@ -83,6 +86,14 @@ class AnalysisWorkerTest(unittest.TestCase):
         self.assertTrue(w.submit(2, "f", "fr", (0, 0, 1, 1), None, False))
         self.assertFalse(w.submit(3, "f", "fr", (0, 0, 1, 1), None, False))   # cap reached
         self.assertEqual(sorted(r[0] for r in w.wait_idle(timeout=3)), [1, 2])
+        w.close()
+
+    def test_emotion_only_jobs_skip_age_gender_and_embedding(self):
+        # After a visitor's samples are in, only the expression is re-read (to keep
+        # the live label current); it must not add a sample or an embedding.
+        w = AnalysisWorker(FakeAnalyzer(), embed=lambda *a: [1.0])
+        w.submit(3, "face", "frame", (0, 0, 1, 1), None, want_embedding=True, emotion_only=True)
+        self.assertEqual(w.wait_idle(timeout=2), [(3, (None, None, "Sad"), None)])
         w.close()
 
     def test_a_failing_model_does_not_kill_the_worker(self):

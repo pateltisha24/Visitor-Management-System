@@ -118,6 +118,9 @@ class AnalysisWorker:
     freeze detection, tracking and the dashboard preview each time. Instead the
     loop hands crops over (at most one in flight per track) and picks up the
     results on a later frame. pending()/submit()/collect() are main-thread only.
+
+    A job is either a full sample (age, gender, emotion [+ re-ID embedding]) or,
+    with emotion_only, just the expression, used to keep the live label current.
     """
 
     def __init__(self, analyzer, embed, max_pending=4):
@@ -130,11 +133,11 @@ class AnalysisWorker:
     def pending(self, track_id):
         return track_id in self._pending
 
-    def submit(self, track_id, face, frame, box, landmarks, want_embedding):
+    def submit(self, track_id, face, frame, box, landmarks, want_embedding, emotion_only=False):
         if track_id in self._pending or len(self._pending) >= self._max_pending:
             return False
         self._pending.add(track_id)
-        self._jobs.put((track_id, face, frame, box, landmarks, want_embedding))
+        self._jobs.put((track_id, face, frame, box, landmarks, want_embedding, emotion_only))
         return True
 
     def _run(self):
@@ -142,10 +145,13 @@ class AnalysisWorker:
             job = self._jobs.get()
             if job is None:
                 return
-            track_id, face, frame, box, landmarks, want_embedding = job
+            track_id, face, frame, box, landmarks, want_embedding, emotion_only = job
             try:
-                result = self._analyzer.analyze(face)
-                embedding = self._embed(frame, box, landmarks, face) if want_embedding else None
+                if emotion_only:
+                    result, embedding = (None, None, self._analyzer.emotion(face)), None
+                else:
+                    result = self._analyzer.analyze(face)
+                    embedding = self._embed(frame, box, landmarks, face) if want_embedding else None
             except Exception as e:
                 print(f"analysis failed: {e}")
                 result = embedding = None
@@ -380,8 +386,9 @@ def main():
             print(f"save failed: {e}")
 
     def apply_result(track, result, embedding):
-        if result:
+        if result and result[0] is not None:          # a full sample
             track.add_sample(*result)
+        if result and result[2] is not None and track.sample_count:
             # Gender/age shown as the running majority (stable), emotion as it is now.
             last_label[track.id] = f"{mode(track.samples['gender'])}, {mode(track.samples['age'])}, {result[2]}"
         if embedding is not None:
@@ -423,16 +430,23 @@ def main():
                 if t is not None:
                     apply_result(t, result, embedding)
 
-            # Amortised analysis: only some frames, only tracks still gathering samples.
-            if frame_idx % config.ANALYZE_EVERY_N_FRAMES == 0:
-                for t in tracks.values():
-                    # Skip tracks not seen this frame: their box is where the face *was*.
-                    if t.disappeared == 0 and t.sample_count < config.MAX_SAMPLES_PER_TRACK \
-                            and not analysis.pending(t.id):
-                        lm = landmarks_by_box.get(t.bbox)
-                        # Every sample also gets a re-ID embedding; the track averages them.
-                        analysis.submit(t.id, face_crop_for_analysis(frame, t.bbox, lm), frame, t.bbox, lm,
-                                        want_embedding=reid is not None)
+            # Amortised analysis: full samples until each track has enough, then (only
+            # while someone is watching) just the expression, so the label stays live.
+            watching = not args.no_show or (live is not None and live.wants_frames)
+            sample_now = frame_idx % config.ANALYZE_EVERY_N_FRAMES == 0
+            refresh_now = watching and config.EMOTION_REFRESH_EVERY > 0 \
+                and frame_idx % config.EMOTION_REFRESH_EVERY == 0
+            for t in tracks.values():
+                # Skip tracks not seen this frame: their box is where the face *was*.
+                if t.disappeared or analysis.pending(t.id):
+                    continue
+                needs_samples = t.sample_count < config.MAX_SAMPLES_PER_TRACK
+                if (needs_samples and sample_now) or (not needs_samples and refresh_now):
+                    lm = landmarks_by_box.get(t.bbox)
+                    # Every sample also gets a re-ID embedding; the track averages them.
+                    analysis.submit(t.id, face_crop_for_analysis(frame, t.bbox, lm), frame, t.bbox, lm,
+                                    want_embedding=needs_samples and reid is not None,
+                                    emotion_only=not needs_samples)
 
             # Persist a visitor once they have enough samples (prompt, deduped).
             for t in tracks.values():

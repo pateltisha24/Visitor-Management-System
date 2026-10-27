@@ -119,6 +119,19 @@ class FaceAnalyzer:
             print(f"FaceAnalyzer: analysis failed ({e}).")
             return None
 
+    def emotion(self, face_bgr):
+        """Just the emotion label (for keeping the live label current); None if unusable."""
+        if face_bgr is None or face_bgr.size == 0:
+            return None
+        if self._hsemotion:
+            try:
+                return self._hsemotion.predict(face_bgr)
+            except Exception as e:
+                print(f"FaceAnalyzer: emotion failed ({e}).")
+                return None
+        result = self.analyze(face_bgr)
+        return result[2] if result else None
+
     def warm_up(self, with_embedding=False):
         """Load (and on first run, download) the models now, so the first real
         visitor isn't delayed by several seconds, which matters in a live demo."""

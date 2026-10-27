@@ -104,6 +104,12 @@ def apply_profile(name):
     TRACK_MAX_DISAPPEARED = get("VMS_TRACK_MAX_DISAPPEARED")
 
 
+# Once a visitor's samples are in, keep re-reading just their expression every
+# this many frames (emotion model only, ~25 ms) so the on-screen / preview label
+# follows the face. Only runs while someone is watching. 0 turns it off.
+EMOTION_REFRESH_EVERY = int(os.environ.get("VMS_EMOTION_REFRESH_EVERY", "6"))
+
+
 apply_profile(PROFILE)
 
 # Max distance (px) between centroids to be treated as the same face.
