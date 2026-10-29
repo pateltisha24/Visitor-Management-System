@@ -7,7 +7,6 @@ import { FiArrowRight, FiLock } from "react-icons/fi";
 import { AuthLayout } from "../components/auth/AuthLayout";
 import { Button } from "../components/ui/button";
 import { Input, Label } from "../components/ui/input";
-import { DemoButton } from "../components/DemoButton";
 
 export const Login = () => {
   const [user, setUser] = useState({ email: "", password: "" });
@@ -62,13 +61,6 @@ export const Login = () => {
           {loading ? "Signing in…" : <>Log in <FiArrowRight /></>}
         </Button>
       </form>
-
-      <div className="my-6 flex items-center gap-4 text-xs text-muted-foreground">
-        <span className="h-px flex-1 bg-border" /> or <span className="h-px flex-1 bg-border" />
-      </div>
-
-      <DemoButton type="button" variant="outline" size="lg" className="w-full" />
-      <p className="mt-2 text-center text-xs text-muted-foreground">No sign-up — jump straight into a sample dashboard.</p>
 
       <p className="mt-6 text-center text-sm text-muted-foreground">
         <FiLock className="mr-1 inline -translate-y-px" size={12} />
