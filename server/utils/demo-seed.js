@@ -10,7 +10,7 @@ const Client1 = require("../models/client1");
 const ReturnVisit = require("../models/return-visit");
 const User = require("../models/user-model");
 
-const DEMO_EMAIL = "demo@facesense.app";
+const { DEMO_EMAIL } = require("./demo-account");
 const DEMO_PASSWORD = "demo1234";
 // About six months of history, starting on the 1st so every month but the
 // current one is complete (the dashboard's "By month" view).

@@ -63,11 +63,13 @@ export const Service = () => {
   const refreshTimer = useRef(null);
   const lastFetchAt = useRef(0);
 
-  const realtime = useRealtime(!isOffline);
+  // The demo never joins the live feed: it carries real readings and camera
+  // previews, and the demo only ever shows sample data (the server agrees).
+  const realtime = useRealtime(!isOffline && !isDemo);
   const { subscribe, cameras: onlineCameras } = realtime;
   const realtimeLive = realtime.status === "live";
 
-  // Default to sample mode once we know this is the demo account.
+  // The demo account is always in sample mode (it can't be switched off).
   useEffect(() => { if (isDemo) setSample(true); }, [isDemo]);
 
   const queryString = useCallback((range, extra = {}) => {
@@ -264,9 +266,11 @@ export const Service = () => {
             )}
             <Button variant="outline" size="sm" onClick={fetchAll} title="Refresh now"><FiRefreshCw /></Button>
             <Button variant="outline" size="sm" onClick={exportCsv} title="Export every reading as CSV"><FiDownload /> Export</Button>
-            <Button variant={sample ? "default" : "secondary"} size="sm" onClick={() => setSample((v) => !v)}>
-              <FiDatabase /> {sample ? "Sample on" : "Sample data"}
-            </Button>
+            {!isDemo && (
+              <Button variant={sample ? "default" : "secondary"} size="sm" onClick={() => setSample((v) => !v)}>
+                <FiDatabase /> {sample ? "Sample on" : "Sample data"}
+              </Button>
+            )}
           </div>
         </div>
 

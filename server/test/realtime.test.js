@@ -69,6 +69,31 @@ test("realtime: dashboard with a bad token is closed", async () => {
     assert.strictEqual(code, 4003);
 });
 
+test("realtime: the demo account is turned away (it only ever sees sample data)", async () => {
+    const ws = client("/ws/dashboard");
+    await ws.opened;
+    ws.send(JSON.stringify({ type: "auth", token: jwt.sign({ email: "demo@facesense.app" }, process.env.JWT_SECRET_KEY) }));
+    const code = await new Promise((r) => ws.on("close", r));
+    assert.strictEqual(code, 4003);
+});
+
+test("demo: analytics and cameras are forced to sample data for the demo account only", () => {
+    const sampleOnlyForDemo = require("../middlewares/demo-middleware");
+    const run = (email, query) => {
+        const req = { user: email ? { email } : undefined, query: { ...query } };
+        let nexted = false;
+        sampleOnlyForDemo(req, {}, () => { nexted = true; });
+        assert.ok(nexted);
+        return req.query;
+    };
+    assert.strictEqual(run("demo@facesense.app", { sample: "false" }).sample, "true");
+    assert.strictEqual(run("demo@facesense.app", {}).sample, "true");
+    assert.strictEqual(run("owner@shop.com", {}).sample, undefined);
+    assert.strictEqual(run("owner@shop.com", { sample: "true" }).sample, "true");
+    const { buildFilter } = require("../controllers/analytics-controller");
+    assert.strictEqual(buildFilter(run("demo@facesense.app", { sample: "false", date: "2026-10-29" })).sample, true);
+});
+
 test("realtime: camera presence, preview on demand, frame relay, events, readings", async () => {
     const dash = await dashboard();
     const agent = client("/ws/agent", { "x-api-key": "test-ingest" });

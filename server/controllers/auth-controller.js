@@ -3,8 +3,8 @@ const bcrypt = require('bcryptjs');
 
 // The shared, read-only demo account (seeded). Changes to it are blocked so the
 // public "Live demo" can't be broken for everyone.
-const DEMO_EMAIL = "demo@facesense.app";
-const isDemoAccount = (req) => req.user?.email === DEMO_EMAIL;
+const { isDemoEmail } = require("../utils/demo-account");
+const isDemoAccount = (req) => isDemoEmail(req.user?.email);
 
 const home = async (req, res) => {
     try {

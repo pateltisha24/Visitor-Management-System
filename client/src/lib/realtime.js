@@ -74,9 +74,11 @@ export function useRealtime(enabled) {
         }
         listeners.current.forEach((fn) => fn(msg));
       };
-      ws.onclose = () => {
+      ws.onclose = (e) => {
         if (disposed) return;
         setCameras([]);
+        // Refused (signed out, or the demo account): retrying won't change that.
+        if (e.code === 4003) { setStatus("unavailable"); return; }
         attempts += 1;
         if (attempts >= MAX_ATTEMPTS_BEFORE_UNAVAILABLE) setStatus("unavailable");
         retry = setTimeout(connect, Math.min(30000, 1000 * 2 ** attempts));

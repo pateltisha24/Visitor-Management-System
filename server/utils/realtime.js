@@ -24,6 +24,7 @@
 // If the gateway is unreachable, the dashboard falls back to polling.
 const { WebSocketServer } = require("ws");
 const jwt = require("jsonwebtoken");
+const { isDemoEmail } = require("./demo-account");
 const User = require("../models/user-model");
 
 const AUTH_TIMEOUT_MS = 5000;
@@ -133,10 +134,13 @@ function handleAgent(ws) {
     });
 }
 
+// The demo account is turned away: this socket carries real readings, events
+// and camera previews, and the demo only ever sees sample data.
 async function verifyDashboardToken(token) {
     if (typeof token !== "string" || !token) return null;
     try {
         const { email } = jwt.verify(token, process.env.JWT_SECRET_KEY);
+        if (isDemoEmail(email)) return null;
         return await User.exists({ email });
     } catch {
         return null;

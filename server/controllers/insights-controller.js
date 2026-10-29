@@ -1,5 +1,6 @@
 const User = require("../models/user-model");
 const { encrypt, decrypt } = require("../utils/crypto");
+const { isDemoEmail } = require("../utils/demo-account");
 
 // Sensible default model per provider. Groq is the zero-cost default.
 // Providers retire models regularly (Groq's llama-3.3-70b-versatile went away
@@ -208,7 +209,7 @@ const getAiConfig = async (req, res) => {
 // PATCH /api/ai/config — set provider/model and (optionally) store/clear the key.
 const updateAiConfig = async (req, res) => {
     try {
-        if (req.user?.email === "demo@facesense.app") {
+        if (isDemoEmail(req.user?.email)) {
             return res.status(403).json({ message: "The demo account is read-only" });
         }
         const { provider, model, apiKey } = req.body;
