@@ -122,9 +122,9 @@ export const WorthALook = ({ items }) => {
   );
 };
 
-// `trends` (optional) carries the data for the Traffic card's three views:
+// `trends` (optional) carries the data for the Traffic card's four views:
 //   { footfall: {data, description, currentLabel, compareLabel},
-//     daily: {data, description}, weekly: {matrix, description} }
+//     daily: {data, description}, monthly: {data, description}, weekly: {matrix, description} }
 // On wide screens everything fits one page: a row of figures, then two rows of cards.
 export const DashboardView = ({ summary, prevSummary, recent = [], trends, context = {} }) => {
   const { total = 0, gender = {}, genderAge = [], emotion = {}, gi = {}, byHour = [], ageEmotionMatrix = [] } = summary;

@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
-  presetRange, previousRange, pctDelta, positivityIndex, hourTotals,
-  buildInsights, detectAnomalies, fmt, parseDate, trendRange, dailySeries,
+  lastDays, pctDelta, positivityIndex, hourTotals,
+  buildInsights, detectAnomalies, fmt, parseDate, dailySeries, monthlySeries,
   footfallSeries, weeklyMatrix, emotionShares, hourSpan, ageLabel, visitorChange,
 } from "./format";
 
@@ -15,24 +15,9 @@ describe("pctDelta", () => {
   });
 });
 
-describe("previousRange", () => {
-  it("returns the equal-length window immediately before", () => {
-    // 7-day window
-    const prev = previousRange("2026-06-01", "2026-06-07");
-    expect(prev).toEqual({ from: "2026-05-25", to: "2026-05-31" });
-  });
-  it("returns null without both bounds", () => {
-    expect(previousRange("", "")).toBeNull();
-  });
-});
-
-describe("presetRange", () => {
-  it("today is a single day", () => {
-    const r = presetRange("today");
-    expect(r.from).toBe(r.to);
-  });
-  it("all time has empty bounds", () => {
-    expect(presetRange("all")).toEqual({ from: "", to: "" });
+describe("lastDays", () => {
+  it("counts today as one of the days", () => {
+    expect(lastDays(30, new Date(2026, 9, 29))).toEqual({ from: "2026-09-30", to: "2026-10-29" });
   });
 });
 
@@ -117,10 +102,7 @@ describe("local dates", () => {
   });
 });
 
-describe("trendRange / dailySeries", () => {
-  it("'today' widens to the last 14 days", () => {
-    expect(trendRange("today", new Date(2026, 9, 29))).toEqual({ from: "2026-10-16", to: "2026-10-29" });
-  });
+describe("dailySeries", () => {
   it("fills missing days with zero and marks today", () => {
     const s = dailySeries([{ date: "2026-10-27", count: 5 }, { date: "2026-10-29", count: 2 }], "2026-10-27", "2026-10-29", "2026-10-29");
     expect(s.map((d) => [d.date, d.count, d.isToday])).toEqual([
@@ -129,6 +111,22 @@ describe("trendRange / dailySeries", () => {
   });
   it("without bounds spans the data", () => {
     expect(dailySeries([{ date: "2026-10-01", count: 1 }, { date: "2026-10-03", count: 1 }]).length).toBe(3);
+  });
+});
+
+describe("monthlySeries", () => {
+  it("starts at the first month with visitors and marks the current one", () => {
+    const s = monthlySeries([{ month: "2026-08", count: 900 }, { month: "2026-10", count: 300 }], 12, new Date(2026, 9, 29));
+    expect(s.map((m) => [m.month, m.count, m.isCurrent])).toEqual([
+      ["2026-08", 900, false], ["2026-09", 0, false], ["2026-10", 300, true],
+    ]);
+  });
+  it("shows the year where it changes", () => {
+    const s = monthlySeries([{ month: "2025-12", count: 1 }, { month: "2026-01", count: 1 }], 12, new Date(2026, 0, 15));
+    expect(s.map((m) => /\d{4}/.test(m.label))).toEqual([true, true]);
+  });
+  it("is empty without data", () => {
+    expect(monthlySeries([], 12, new Date(2026, 9, 29))).toEqual([]);
   });
 });
 
@@ -167,21 +165,15 @@ describe("emotionShares", () => {
 });
 
 describe("visitorChange", () => {
-  it("today: compares with the same weekday last week up to the same hour", () => {
+  it("compares today so far with the same weekday last week up to the same hour", () => {
     const c = visitorChange({
-      preset: "today", summary: { total: 30 }, compareWeekday: "Thursday", nowHour: 11,
+      summary: { total: 30 }, compareWeekday: "Thursday", nowHour: 11,
       hourlyCmp: { hours: [{ hour: "09", count: 10 }, { hour: "11", count: 30 }, { hour: "18", count: 500 }], days: 1 },
     });
-    expect(c).toEqual({ pct: -25, label: "the same time last Thursday", perDay: false });   // 30 vs 40, not vs 540
-  });
-  it("multi-day: compares averages per complete day", () => {
-    const c = visitorChange({
-      preset: "7d", prev: { total: 700, days: 7 },
-      hourly: { hours: [{ hour: "12", count: 660 }], days: 6 },                             // 110/day vs 100/day
-    });
-    expect(c).toEqual({ pct: 10, label: "the previous 7 days", perDay: true });
+    expect(c).toEqual({ pct: -25, label: "the same time last Thursday" });   // 30 vs 40, not vs 540
   });
   it("is null without a baseline", () => {
-    expect(visitorChange({ preset: "7d", prev: null, hourly: { hours: [], days: 0 } })).toBeNull();
+    expect(visitorChange({ summary: { total: 5 }, hourlyCmp: null })).toBeNull();
+    expect(visitorChange({ summary: { total: 5 }, hourlyCmp: { hours: [] }, nowHour: 9 })).toBeNull();
   });
 });

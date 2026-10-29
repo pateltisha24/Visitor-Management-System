@@ -7,30 +7,8 @@ export const fmt = (d) => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d
 export const parseDate = (s) => { const [y, m, d] = s.split("-").map(Number); return new Date(y, m - 1, d); };
 export const addDays = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); return x; };
 
-export const RANGE_PRESETS = [
-  { key: "today", label: "Today" },
-  { key: "7d", label: "7 days" },
-  { key: "30d", label: "30 days" },
-  { key: "all", label: "All time" },
-];
-
-export function presetRange(preset) {
-  const today = new Date();
-  if (preset === "today") return { from: fmt(today), to: fmt(today) };
-  if (preset === "7d") return { from: fmt(addDays(today, -6)), to: fmt(today) };
-  if (preset === "30d") return { from: fmt(addDays(today, -29)), to: fmt(today) };
-  return { from: "", to: "" }; // all time
-}
-
-// Equal-length window immediately before [from, to].
-export function previousRange(from, to) {
-  if (!from || !to) return null;
-  const start = parseDate(from), end = parseDate(to);
-  const len = Math.round((end - start) / 86400000) + 1;
-  const prevTo = addDays(start, -1);
-  const prevFrom = addDays(prevTo, -(len - 1));
-  return { from: fmt(prevFrom), to: fmt(prevTo) };
-}
+// The last n days up to and including `now`, e.g. lastDays(30) for the daily chart.
+export const lastDays = (n, now = new Date()) => ({ from: fmt(addDays(now, -(n - 1))), to: fmt(now) });
 
 // ---- Percentage-change delta between two numbers ----
 export function pctDelta(current, previous) {
@@ -142,26 +120,14 @@ export function detectAnomalies(byHour = []) {
 }
 
 // Like-for-like visitor change, so a day still in progress isn't compared with
-// complete ones:
-//   today:     today so far vs the same weekday last week up to the same hour
-//   multi-day: average per complete day vs the previous period's average
+// a complete one: today so far vs the same weekday last week up to the same hour.
 // Returns {pct, label} or null.
-export function visitorChange({ preset, summary, prev, hourly, hourlyCmp, compareWeekday, nowHour = new Date().getHours() }) {
-  const sum = (series, maxHour = 99) => (series?.hours || []).filter((h) => Number(h.hour) <= maxHour).reduce((a, h) => a + h.count, 0);
-  let current, baseline, label;
-  if (preset === "today") {
-    if (!hourlyCmp) return null;
-    current = summary?.total || 0;
-    baseline = sum(hourlyCmp, nowHour);
-    label = `the same time last ${compareWeekday}`;
-  } else {
-    if (!prev?.total || !hourly?.days) return null;
-    current = sum(hourly) / hourly.days;
-    baseline = prev.total / Math.max(1, prev.days || 1);
-    label = { "7d": "the previous 7 days", "30d": "the previous 30 days" }[preset] || "the previous period";
-  }
+export function visitorChange({ summary, hourlyCmp, compareWeekday, nowHour = new Date().getHours() }) {
+  if (!hourlyCmp) return null;
+  const baseline = (hourlyCmp.hours || []).filter((h) => Number(h.hour) <= nowHour).reduce((a, h) => a + h.count, 0);
   if (!baseline) return null;
-  return { pct: Math.round(((current - baseline) / baseline) * 100), label, perDay: preset !== "today" };
+  const current = summary?.total || 0;
+  return { pct: Math.round(((current - baseline) / baseline) * 100), label: `the same time last ${compareWeekday}` };
 }
 
 // Plain-language takeaways for the current view.
@@ -193,10 +159,9 @@ export function buildInsights(summary, prevSummary, context = {}) {
   // How many, compared with before (like-for-like when available).
   const vc = context.visitorChange;
   if (vc) {
-    const what = vc.perDay ? "visitors a day" : "visitors";
     out.push(vc.pct === 0
-      ? `You had about the same number of ${what} as ${vc.label}.`
-      : `You had ${Math.abs(vc.pct)}% ${vc.pct > 0 ? "more" : "fewer"} ${what} than ${vc.label}.`);
+      ? `You had about the same number of visitors as ${vc.label}.`
+      : `You had ${Math.abs(vc.pct)}% ${vc.pct > 0 ? "more" : "fewer"} visitors than ${vc.label}.`);
   } else if (prevSummary?.total) {
     const change = Math.round(((summary.total - prevSummary.total) / prevSummary.total) * 100);
     out.push(change === 0
@@ -243,12 +208,6 @@ export function buildInsights(summary, prevSummary, context = {}) {
 // ---- Chart data shaping ----
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
-// Range for the daily-trend chart: a single day gets the last 14 days for context.
-export function trendRange(preset, now = new Date()) {
-  if (preset === "today") return { from: fmt(addDays(now, -13)), to: fmt(now) };
-  return presetRange(preset);
-}
-
 // [{date, count}] -> one point per calendar day in [from, to] (gaps become 0).
 // Without bounds (all time), spans the first to last day that has data.
 export function dailySeries(rows = [], from, to, today = fmt(new Date())) {
@@ -267,6 +226,28 @@ export function dailySeries(rows = [], from, to, today = fmt(new Date())) {
     });
   }
   return out;
+}
+
+// [{month: "YYYY-MM", count}] -> one bar per month over the last n months,
+// starting at the first month with visitors (gaps after that become 0). The
+// current month is marked since it's still in progress.
+export function monthlySeries(rows = [], n = 12, now = new Date()) {
+  const counts = Object.fromEntries(rows.map((r) => [r.month, r.count]));
+  const months = [];
+  for (let i = n - 1; i >= 0; i--) months.push(new Date(now.getFullYear(), now.getMonth() - i, 1));
+  const first = months.findIndex((d) => counts[fmt(d).slice(0, 7)]);
+  if (first < 0) return [];
+  return months.slice(first).map((d, i, shown) => {
+    const month = fmt(d).slice(0, 7);
+    // The year only where it changes (and on the first bar).
+    const withYear = i === 0 || d.getMonth() === 0;
+    return {
+      month,
+      label: d.toLocaleDateString(undefined, withYear ? { month: "short", year: "numeric" } : { month: "short" }),
+      count: counts[month] || 0,
+      isCurrent: i === shown.length - 1,
+    };
+  });
 }
 
 // Visitors per hour as an average per day, against a comparison period.

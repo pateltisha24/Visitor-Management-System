@@ -11,8 +11,8 @@ import { Button } from "../components/ui/button";
 import { Card } from "../components/ui/card";
 import { cn } from "../lib/utils";
 import {
-  RANGE_PRESETS, presetRange, previousRange, downloadCSV, fmt, addDays, parseDate,
-  trendRange, dailySeries, footfallSeries, weeklyMatrix, visitorChange, detectAnomalies,
+  lastDays, downloadCSV, fmt, addDays, dailySeries, monthlySeries,
+  footfallSeries, weeklyMatrix, visitorChange, detectAnomalies,
 } from "../lib/format";
 
 const POLL_MS = 10000;
@@ -30,15 +30,16 @@ const GENDER_OPTS = [{ v: "", l: "All" }, { v: "Female", l: "Female" }, { v: "Ma
 
 export const Service = () => {
   const { user, isDemo, isOffline } = useAuth();
-  const [preset, setPreset] = useState("7d");
   const [filters, setFilters] = useState({ gender: "", gi: "", camera: "" });
   const [summary, setSummary] = useState(null);
   const [prev, setPrev] = useState(null);
   const [recent, setRecent] = useState([]);
   const [trends, setTrends] = useState(null);
   const [change, setChange] = useState(null);   // like-for-like visitor change
-  // What the "previous" summary covers, for plain-language comparisons.
-  const compareLabel = { today: "yesterday", "7d": "the previous 7 days", "30d": "the previous 30 days" }[preset];
+  // The dashboard is always about today; comparisons are with the same weekday
+  // last week, and the Traffic card's tabs give the longer view.
+  const weekday = new Date().toLocaleDateString(undefined, { weekday: "long" });
+  const compareLabel = `last ${weekday}`;
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [live, setLive] = useState(true);
@@ -85,59 +86,51 @@ export const Service = () => {
     }
     lastFetchAt.current = Date.now();
     try {
-      const range = presetRange(preset);
-      // A fresh session has no meaningful "previous period" to compare against.
-      const fresh = since && !sample;
-      const prevR = fresh ? null : previousRange(range.from, range.to);
-      // Footfall by hour compares today with the same weekday last week (a fairer
-      // baseline than yesterday); longer ranges compare with the previous period.
-      const lastWeek = preset === "today" ? fmt(addDays(parseDate(range.from), -7)) : null;
-      const footR = fresh ? null : lastWeek ? { from: lastWeek, to: lastWeek } : prevR;
-      const trendR = trendRange(preset);
-      // Averages (footfall by hour, busy times) use complete days only: today is
-      // still in progress, so counting it as a full day would drag them down.
-      const multiDay = preset !== "today";
+      const today = fmt(new Date());
       const yesterday = fmt(addDays(new Date(), -1));
-      const completeR = multiDay && !fresh ? { from: range.from, to: yesterday } : range;
-      // The weekly pattern needs several weeks: on "Today" use the last 4. Longer
-      // ranges shift back a day so they still span whole weeks (7 days = each weekday once).
-      const weeklyR = !multiDay ? { from: fmt(addDays(new Date(), -28)), to: yesterday }
-        : range.from && !fresh ? { from: fmt(addDays(parseDate(range.from), -1)), to: yesterday }
-        : completeR;
+      const range = { from: today, to: today };
+      // A fresh session has no meaningful "before" to compare against.
+      const fresh = since && !sample;
+      const lastWeek = fmt(addDays(new Date(), -7));
+      const lastWeekR = fresh ? null : { from: lastWeek, to: lastWeek };
+      const dailyR = lastDays(30);
+      const monthlyR = { from: fmt(new Date(new Date().getFullYear(), new Date().getMonth() - 11, 1)), to: today };
+      // The weekly pattern averages the last 4 complete weeks.
+      const weeklyR = { from: fmt(addDays(new Date(), -28)), to: yesterday };
       const get = (path, r, extra) => api.get(`/api/analytics/${path}${queryString(r, extra)}`).then((res) => res.data);
-      const [sum, recentRows, prevSum, hourly, hourlyCmp, daily, weekly] = await Promise.all([
+      const [sum, recentRows, prevSum, hourly, hourlyCmp, daily, monthly, weekly] = await Promise.all([
         get("summary", range),
         get("recent", range, { limit: 10 }),
-        prevR ? get("summary", prevR) : null,
-        get("hourly", completeR),
-        footR ? get("hourly", footR) : null,
-        get("daily", trendR),
+        lastWeekR ? get("summary", lastWeekR) : null,
+        get("hourly", range),
+        lastWeekR ? get("hourly", lastWeekR) : null,
+        get("daily", dailyR),
+        get("monthly", monthlyR),
         get("weekly", weeklyR),
       ]);
       if (myId !== reqId.current) return; // a newer request superseded this one
       setSummary(sum);
       setRecent(recentRows || []);
       setPrev(prevSum);
-      const weekday = parseDate(range.from || fmt(new Date())).toLocaleDateString(undefined, { weekday: "long" });
-      setChange(fresh ? null : visitorChange({ preset, summary: sum, prev: prevSum, hourly, hourlyCmp, compareWeekday: weekday }));
+      setChange(fresh ? null : visitorChange({ summary: sum, hourlyCmp, compareWeekday: weekday }));
       setTrends({
         footfall: {
           data: footfallSeries(hourly, hourlyCmp),
-          description: multiDay
-            ? "Average visitors per hour on the complete days of this period, against the previous period."
-            : footR ? `Visitors per hour today, against last ${weekday}.` : "Visitors per hour today.",
-          currentLabel: multiDay ? "This period, avg per day" : "Today",
-          compareLabel: footR ? (multiDay ? "Previous period" : `Last ${weekday}`) : null,
+          description: hourlyCmp ? `Visitors per hour today, against last ${weekday}.` : "Visitors per hour today.",
+          currentLabel: "Today",
+          compareLabel: hourlyCmp ? `Last ${weekday}` : null,
         },
         daily: {
-          data: dailySeries(daily, trendR.from, trendR.to),
-          description: preset === "today" ? "The last 14 days; today is highlighted." : "Visitors per day in this period.",
+          data: dailySeries(daily, dailyR.from, dailyR.to),
+          description: "Visitors per day over the last 30 days; today is highlighted.",
+        },
+        monthly: {
+          data: monthlySeries(monthly),
+          description: "Visitors per month; this month so far is highlighted.",
         },
         weekly: {
           matrix: weeklyMatrix(weekly?.cells || []),
-          description: multiDay
-            ? "Average visitors by day of the week and hour over this period — darker means busier."
-            : "Your regular weekly pattern over the last 4 weeks — darker means busier.",
+          description: "Your regular week over the last 4 weeks — darker means busier.",
         },
       });
       setError(false); setLastUpdated(new Date());
@@ -146,7 +139,7 @@ export const Service = () => {
     } finally {
       if (myId === reqId.current) setLoading(false);
     }
-  }, [isOffline, preset, queryString, since, sample]);
+  }, [isOffline, queryString, since, sample, weekday]);
 
   useEffect(() => { setLoading(true); fetchAll(); }, [fetchAll]);
 
@@ -203,16 +196,15 @@ export const Service = () => {
 
   const startFresh = () => {
     const now = new Date().toISOString();
-    writeSince(now); setSince(now); setPreset("today"); setActivity([]);
+    writeSince(now); setSince(now); setActivity([]);
   };
   const clearFresh = () => { writeSince(""); setSince(""); };
 
   const exportCsv = async () => {
     try {
       if (isOffline) return downloadCSV(sampleRecent, "facesense-sample.csv");
-      const range = presetRange(preset);
-      const res = await api.get(`/api/data${queryString(range)}`);
-      downloadCSV(res.data, `facesense-${sample ? "sample" : preset}.csv`);
+      const res = await api.get(`/api/data${queryString(null)}`);
+      downloadCSV(res.data, `facesense-${sample ? "sample" : "readings"}.csv`);
     } catch {
       /* surfaced via empty file guard */
     }
@@ -246,7 +238,7 @@ export const Service = () => {
               <FiActivity className={live && !sample ? "animate-pulse" : ""} /> {live && !sample ? "Live" : "Paused"}
             </Button>
             <Button variant="outline" size="sm" onClick={fetchAll} title="Refresh now"><FiRefreshCw /></Button>
-            <Button variant="outline" size="sm" onClick={exportCsv} title="Export CSV"><FiDownload /> Export</Button>
+            <Button variant="outline" size="sm" onClick={exportCsv} title="Export every reading as CSV"><FiDownload /> Export</Button>
             <Button variant={sample ? "default" : "secondary"} size="sm" onClick={() => setSample((v) => !v)}>
               <FiDatabase /> {sample ? "Sample on" : "Sample data"}
             </Button>
@@ -255,7 +247,9 @@ export const Service = () => {
 
         {/* Range + filters */}
         <div className="mt-3 flex flex-wrap items-center gap-2">
-          <Segmented options={RANGE_PRESETS.map((r) => ({ v: r.key, l: r.label }))} value={preset} onChange={setPreset} />
+          <span className="rounded-full border border-border bg-card px-3 py-1.5 text-sm font-medium">
+            Today · {new Date().toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long" })}
+          </span>
           <span className="mx-1 hidden h-5 w-px bg-border sm:block" />
           <Segmented options={GENDER_OPTS} value={filters.gender} onChange={(v) => setFilters((f) => ({ ...f, gender: v }))} />
           <Segmented options={GI_OPTS} value={filters.gi} onChange={(v) => setFilters((f) => ({ ...f, gi: v }))} />

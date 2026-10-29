@@ -172,3 +172,13 @@ test("AI facts: plain clock times and quietest *open* hour", () => {
     assert.strictEqual(facts.quietestOpenTime, "9 am-10 am (20 visitors)");   // not the 2 stray readings after midnight
     assert.strictEqual(facts.lookedHappyOrSurprised, "33%");
 });
+
+test("sample data: six whole months, nothing in the future", () => {
+    const { generate, firstSampleDay } = require("../utils/demo-seed");
+    const now = new Date(2026, 9, 29, 14, 30);
+    assert.strictEqual(firstSampleDay(now).toDateString(), new Date(2026, 4, 1).toDateString());
+    const docs = generate(now);
+    const months = new Set(docs.map((d) => d.Date.slice(0, 7)));
+    assert.deepStrictEqual([...months].sort(), ["2026-05", "2026-06", "2026-07", "2026-08", "2026-09", "2026-10"]);
+    assert.ok(docs.every((d) => d.Timestamp <= now));
+});

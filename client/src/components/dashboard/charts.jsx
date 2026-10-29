@@ -4,7 +4,7 @@ import {
   AreaChart, Area, Legend, Cell, ReferenceLine,
 } from "recharts";
 import { cn } from "../../lib/utils";
-import { ChartCard, ChartBox, CustomTooltip, Delta } from "./chartParts";
+import { ChartCard, ChartBox, CustomTooltip, Delta, num } from "./chartParts";
 import { hourSpan } from "../../lib/format";
 import { emotionColor, axisProps } from "./theme";
 
@@ -23,20 +23,25 @@ export const Tabs = ({ tabs, value, onChange }) => (
   </div>
 );
 
-const TRAFFIC_TABS = [{ key: "hour", label: "By hour" }, { key: "day", label: "By day" }, { key: "week", label: "Busy times" }];
+const TRAFFIC_TABS = [
+  { key: "hour", label: "By hour" }, { key: "day", label: "By day" },
+  { key: "month", label: "By month" }, { key: "week", label: "Busy times" },
+];
 
-// One card for visitor traffic: per hour (the default, the staffing question),
-// per day (the trend), and the regular weekly pattern (weekday x hour).
+// One card for visitor traffic: today per hour (the default, the staffing
+// question), the trend per day and per month, and the regular weekly pattern.
 //   footfall: {data, description, currentLabel, compareLabel}
 //   daily:    {data, description}
+//   monthly:  {data, description}
 //   weekly:   {matrix, description}
-export const TrafficCard = ({ footfall, daily, weekly }) => {
+export const TrafficCard = ({ footfall, daily, monthly, weekly }) => {
   const [tab, setTab] = useState("hour");
-  const description = { hour: footfall.description, day: daily.description, week: weekly.description }[tab];
+  const description = { hour: footfall.description, day: daily.description, month: monthly.description, week: weekly.description }[tab];
   return (
     <ChartCard title="Traffic" description={description} action={<Tabs tabs={TRAFFIC_TABS} value={tab} onChange={setTab} />}>
       {tab === "hour" && <FootfallView {...footfall} />}
       {tab === "day" && <DailyView data={daily.data} />}
+      {tab === "month" && <MonthlyView data={monthly.data} />}
       {tab === "week" && <BusyTimesView matrix={weekly.matrix} />}
     </ChartCard>
   );
@@ -88,6 +93,26 @@ const DailyView = ({ data }) => {
     </ChartBox>
   ) : <Empty>No visitors in this period yet.</Empty>;
 };
+
+// Visitors per month, the month in progress highlighted and labelled "so far".
+const MonthlyView = ({ data }) => (
+  data.length ? (
+    <ChartBox>
+      <ResponsiveContainer width="100%" height="100%">
+        <BarChart data={data} margin={{ top: 8, right: 8, left: -8, bottom: 0 }}>
+          <CartesianGrid vertical={false} stroke="hsl(var(--border))" strokeDasharray="3 3" />
+          <XAxis dataKey="label" {...axisProps} />
+          <YAxis {...axisProps} allowDecimals={false} tickFormatter={num} />
+          <Tooltip content={<CustomTooltip labelFormatter={(l) => (l === data[data.length - 1].label ? `${l} (so far)` : l)} />}
+                   cursor={{ fill: "hsl(var(--muted))", opacity: 0.5 }} />
+          <Bar dataKey="count" name="Visitors" radius={[4, 4, 0, 0]} maxBarSize={48}>
+            {data.map((d) => <Cell key={d.month} fill={d.isCurrent ? "hsl(var(--primary))" : "hsl(var(--primary) / 0.45)"} />)}
+          </Bar>
+        </BarChart>
+      </ResponsiveContainer>
+    </ChartBox>
+  ) : <Empty>No visitors yet.</Empty>
+);
 
 // Average visitors by weekday x hour: where the regular peaks are.
 const BusyTimesView = ({ matrix }) => {

@@ -188,6 +188,20 @@ const getDaily = async (req, res) => {
     }
 };
 
+// GET /api/analytics/monthly — visitors per calendar month ("YYYY-MM").
+const getMonthly = async (req, res) => {
+    try {
+        const rows = await Client1.aggregate([
+            { $match: buildFilter(req.query) },
+            { $group: { _id: { $substrCP: ["$Date", 0, 7] }, count: { $sum: 1 } } },
+            { $sort: { _id: 1 } },
+        ]);
+        res.json(rows.filter((r) => r._id).map(({ _id, count }) => ({ month: _id, count })));
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+};
+
 // Reduce per-(date, hour) counts into an average-visitors grid by weekday x hour.
 // Averages divide by the number of that weekday's dates that had any visitors,
 // so days the place was closed don't drag the average down.
@@ -222,4 +236,4 @@ const getWeekly = async (req, res) => {
     }
 };
 
-module.exports = { getData, getRecent, getDates, getSummary, getHourly, getDaily, getWeekly, buildFilter, returnFilter, weeklyGrid };
+module.exports = { getData, getRecent, getDates, getSummary, getHourly, getDaily, getMonthly, getWeekly, buildFilter, returnFilter, weeklyGrid };

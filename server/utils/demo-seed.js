@@ -12,7 +12,9 @@ const User = require("../models/user-model");
 
 const DEMO_EMAIL = "demo@facesense.app";
 const DEMO_PASSWORD = "demo1234";
-const DAYS = 30;
+// About six months of history, starting on the 1st so every month but the
+// current one is complete (the dashboard's "By month" view).
+const MONTHS = 6;
 const OPEN_HOUR = 9;
 const CLOSE_HOUR = 20;
 // Reseed when the newest sample reading is older than this.
@@ -62,17 +64,22 @@ function reading(day, hour, minute, second, opts = {}) {
   return doc;
 }
 
+const firstSampleDay = (now = new Date()) => new Date(now.getFullYear(), now.getMonth() - (MONTHS - 1), 1);
+
 function generate(now = new Date()) {
   const todayHour = now.getHours();
+  const today = localDate(now);
+  const start = firstSampleDay(now);
   const docs = [];
 
-  for (let d = DAYS - 1; d >= 0; d--) {
-    const day = new Date(now);
-    day.setDate(now.getDate() - d);
-    const isToday = d === 0;
+  for (let day = new Date(start); localDate(day) <= today; day.setDate(day.getDate() + 1)) {
+    const isToday = localDate(day) === today;
     const dow = day.getDay();
     const weekendBoost = dow === 0 || dow === 6 ? 1.4 : 1.0;
-    const dailyBase = randInt(22, 38) * weekendBoost;
+    // A store that's slowly growing: the first month is ~80% of the latest.
+    const monthIndex = (day.getFullYear() - start.getFullYear()) * 12 + day.getMonth() - start.getMonth();
+    const growth = 0.8 + 0.2 * (monthIndex / (MONTHS - 1));
+    const dailyBase = randInt(22, 38) * weekendBoost * growth;
 
     // One off-peak hour today is anomalous: a footfall spike with sour sentiment.
     const anomalyHour = 15;
@@ -82,8 +89,13 @@ function generate(now = new Date()) {
       const isAnomaly = isToday && h === anomalyHour;
       let count = Math.round(dailyBase * (HOUR_WEIGHT[h] || 0.6) * (0.8 + Math.random() * 0.4));
       if (isAnomaly) count = Math.round(count * 3) + 18;
+      // The current hour is only partly over: fewer readings, none after now.
+      const lastMinute = isToday && h === todayHour ? now.getMinutes() : 59;
+      count = Math.round(count * (lastMinute + 1) / 60);
       for (let i = 0; i < count; i++) {
-        docs.push(reading(day, h, randInt(0, 59), randInt(0, 59), { negative: isAnomaly && Math.random() < 0.6 }));
+        const minute = randInt(0, lastMinute);
+        const second = minute === now.getMinutes() && lastMinute < 59 ? randInt(0, now.getSeconds()) : randInt(0, 59);
+        docs.push(reading(day, h, minute, second, { negative: isAnomaly && Math.random() < 0.6 }));
       }
     }
   }
@@ -149,9 +161,15 @@ async function seedSampleData({ keep = false } = {}) {
   return docs.length;
 }
 
+// Stale when the newest reading is old, or the history is shorter than it
+// should be (e.g. sample data seeded before it covered six months).
 async function sampleIsStale() {
-  const latest = await Client1.findOne({ sample: true }).sort({ Timestamp: -1 }).select({ Timestamp: 1 }).lean();
-  return !latest || Date.now() - new Date(latest.Timestamp).getTime() > STALE_AFTER_MS;
+  const [latest, oldest] = await Promise.all([
+    Client1.findOne({ sample: true }).sort({ Timestamp: -1 }).select({ Timestamp: 1 }).lean(),
+    Client1.findOne({ sample: true }).sort({ Date: 1 }).select({ Date: 1 }).lean(),
+  ]);
+  if (!latest || Date.now() - new Date(latest.Timestamp).getTime() > STALE_AFTER_MS) return true;
+  return oldest.Date > localDate(firstSampleDay());
 }
 
-module.exports = { seedSampleData, sampleIsStale, DEMO_EMAIL, DEMO_PASSWORD, DAYS };
+module.exports = { seedSampleData, sampleIsStale, generate, firstSampleDay, DEMO_EMAIL, DEMO_PASSWORD, MONTHS };

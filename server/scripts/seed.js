@@ -11,14 +11,14 @@
  */
 require("dotenv").config();
 const mongoose = require("mongoose");
-const { seedSampleData, DEMO_EMAIL, DEMO_PASSWORD, DAYS } = require("../utils/demo-seed");
+const { seedSampleData, DEMO_EMAIL, DEMO_PASSWORD, MONTHS } = require("../utils/demo-seed");
 
 async function run() {
   await mongoose.connect(process.env.MONGODB_URI);
   console.log("Connected. Seeding…");
   const count = await seedSampleData({ keep: process.argv.includes("--keep") });
   console.log(`Demo user ready: ${DEMO_EMAIL} / ${DEMO_PASSWORD}`);
-  console.log(`Seeded ${count} sample readings across ${DAYS} days.`);
+  console.log(`Seeded ${count} sample readings across ${MONTHS} months.`);
   await mongoose.disconnect();
 }
 
