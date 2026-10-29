@@ -47,8 +47,12 @@ export const TrafficCard = ({ footfall, daily, monthly, weekly }) => {
   );
 };
 
-// Visitors per hour (bars) against a comparison period (dashed line).
-const FootfallView = ({ data, currentLabel, compareLabel }) => (
+// Legend labels in the normal text colour (a faded series' own colour is too pale to read).
+const legendText = (value) => <span className="text-muted-foreground">{value}</span>;
+
+// Visitors per hour today (bars) against the same day last week (dashed line).
+// Hours still to come show a typical day as faded, outlined bars after "Now".
+const FootfallView = ({ data, currentLabel, compareLabel, expectedLabel, nowHour }) => (
   data.length ? (
     <ChartBox>
       <ResponsiveContainer width="100%" height="100%">
@@ -57,8 +61,16 @@ const FootfallView = ({ data, currentLabel, compareLabel }) => (
           <XAxis dataKey="hour" {...axisProps} tickFormatter={hourLabel} />
           <YAxis {...axisProps} allowDecimals={false} />
           <Tooltip content={<CustomTooltip labelFormatter={hourLabel} />} cursor={{ fill: "hsl(var(--muted))", opacity: 0.5 }} />
-          <Legend iconType="circle" wrapperStyle={{ fontSize: 12 }} />
-          <Bar dataKey="current" name={currentLabel} fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} maxBarSize={32} />
+          <Legend iconType="circle" wrapperStyle={{ fontSize: 12 }} formatter={legendText} />
+          <Bar dataKey="current" name={currentLabel} stackId="hour" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} maxBarSize={32} />
+          {data.some((d) => d.expected) && (
+            <Bar dataKey="expected" name={expectedLabel} stackId="hour" fill="hsl(var(--primary) / 0.18)"
+                 stroke="hsl(var(--primary) / 0.6)" strokeDasharray="4 3" radius={[4, 4, 0, 0]} maxBarSize={32} />
+          )}
+          {nowHour != null && data.some((d) => d.expected) && (
+            <ReferenceLine x={String(nowHour).padStart(2, "0")} stroke="hsl(var(--muted-foreground))" strokeDasharray="2 3"
+                           label={{ value: "Now", position: "insideTopRight", fill: "hsl(var(--muted-foreground))", fontSize: 11 }} />
+          )}
           {compareLabel && (
             <Line dataKey="compare" name={compareLabel} type="monotone" stroke="hsl(var(--muted-foreground))"
                   strokeWidth={2} strokeDasharray="5 4" dot={false} />

@@ -261,18 +261,33 @@ export function monthlySeries(rows = [], n = 12, now = new Date()) {
 
 // Visitors per hour as an average per day, against a comparison period.
 // Only the hours that have data in either series (and those in between).
-export function footfallSeries(current = { hours: [], days: 0 }, compare = null) {
+// With `expected` ({hour: visitors on a typical day}) and `nowHour`, the hours
+// still to come today show what's expected instead of an empty gap.
+export function footfallSeries(current = { hours: [], days: 0 }, compare = null, { expected = null, nowHour = null } = {}) {
   const per = (series) => Object.fromEntries((series?.hours || []).map((h) => [h.hour, h.count / Math.max(1, series.days)]));
   const cur = per(current), cmp = compare ? per(compare) : {};
-  const hours = [...new Set([...Object.keys(cur), ...Object.keys(cmp)])].map(Number).sort((a, b) => a - b);
+  const exp = expected && nowHour != null
+    ? Object.fromEntries(Object.entries(expected).filter(([h]) => Number(h) > nowHour)) : {};
+  const hours = [...new Set([...Object.keys(cur), ...Object.keys(cmp), ...Object.keys(exp)])].map(Number).sort((a, b) => a - b);
   if (!hours.length) return [];
   const round = (v) => (v == null ? null : Math.round(v * 10) / 10);
   const out = [];
   for (let h = hours[0]; h <= hours[hours.length - 1]; h++) {
     const key = pad2(h);
-    out.push({ hour: key, current: round(cur[key] ?? 0), compare: compare ? round(cmp[key] ?? 0) : null });
+    const future = nowHour != null && h > nowHour;
+    out.push({
+      hour: key,
+      current: future ? null : round(cur[key] ?? 0),
+      compare: compare ? round(cmp[key] ?? 0) : null,
+      ...(expected ? { expected: future ? Math.round(exp[key] ?? 0) : null } : {}),
+    });
   }
   return out;
+}
+
+// Typical visitors per hour on a given weekday, from the busy-times cells.
+export function typicalDay(cells = [], dow) {
+  return Object.fromEntries(cells.filter((c) => c.dow === dow).map((c) => [c.hour, c.avg]));
 }
 
 // {cells: [{dow, hour, avg}]} -> rows Mon..Sun x the hours that ever have data,

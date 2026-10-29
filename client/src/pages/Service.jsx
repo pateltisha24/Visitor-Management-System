@@ -12,7 +12,7 @@ import { Card } from "../components/ui/card";
 import { cn } from "../lib/utils";
 import {
   lastDays, downloadCSV, fmt, addDays, dailySeries, monthlySeries,
-  footfallSeries, weeklyMatrix, visitorChange, detectAnomalies, personLabel,
+  footfallSeries, typicalDay, weeklyMatrix, visitorChange, detectAnomalies, personLabel,
 } from "../lib/format";
 
 const POLL_MS = 10000;
@@ -112,10 +112,12 @@ export const Service = () => {
       setChange(fresh ? null : visitorChange({ summary: sum, hourlyCmp, compareWeekday: weekday }));
       setTrends({
         footfall: {
-          data: footfallSeries(hourly, hourlyCmp),
+          data: footfallSeries(hourly, hourlyCmp, { expected: typicalDay(weekly?.cells, new Date().getDay()), nowHour: new Date().getHours() }),
           description: hourlyCmp ? `Visitors per hour today, against last ${weekday}.` : "Visitors per hour today.",
           currentLabel: "Today",
           compareLabel: hourlyCmp ? `Last ${weekday}` : null,
+          expectedLabel: `Typical ${weekday}`,
+          nowHour: new Date().getHours(),
         },
         daily: {
           data: dailySeries(daily, dailyR.from, dailyR.to),

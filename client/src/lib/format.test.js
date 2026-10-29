@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   lastDays, pctDelta, positivityIndex, hourTotals,
   buildInsights, detectAnomalies, fmt, parseDate, dailySeries, monthlySeries,
-  footfallSeries, weeklyMatrix, emotionShares, hourSpan, ageLabel, personLabel, visitorChange,
+  footfallSeries, typicalDay, weeklyMatrix, emotionShares, hourSpan, ageLabel, personLabel, visitorChange,
 } from "./format";
 
 describe("pctDelta", () => {
@@ -147,6 +147,15 @@ describe("footfallSeries", () => {
   });
   it("is empty without data", () => {
     expect(footfallSeries({ hours: [], days: 0 })).toEqual([]);
+  });
+  it("shows what's expected for the hours still to come today", () => {
+    const s = footfallSeries({ hours: [{ hour: "09", count: 8 }, { hour: "10", count: 12 }], days: 1 }, null,
+      { expected: typicalDay([{ dow: 4, hour: "10", avg: 20 }, { dow: 4, hour: "11", avg: 30.4 }, { dow: 5, hour: "12", avg: 99 }], 4), nowHour: 10 });
+    expect(s).toEqual([
+      { hour: "09", current: 8, compare: null, expected: null },
+      { hour: "10", current: 12, compare: null, expected: null },   // the hour in progress is real, not expected
+      { hour: "11", current: null, compare: null, expected: 30 },
+    ]);
   });
 });
 
