@@ -4,14 +4,14 @@ import {
   AreaChart, Area, Legend, Cell, ReferenceLine,
 } from "recharts";
 import { cn } from "../../lib/utils";
-import { ChartCard, CustomTooltip, Delta } from "./chartParts";
+import { ChartCard, ChartBox, CustomTooltip, Delta } from "./chartParts";
 import { hourSpan } from "../../lib/format";
 import { emotionColor, axisProps } from "./theme";
 
 const hourLabel = (h) => `${h}:00`;
 
 // Pill-style tab switcher shared by the multi-view cards.
-const Tabs = ({ tabs, value, onChange }) => (
+export const Tabs = ({ tabs, value, onChange }) => (
   <div className="inline-flex rounded-full border border-border bg-card p-1">
     {tabs.map((t) => (
       <button key={t.key} onClick={() => onChange(t.key)}
@@ -45,20 +45,22 @@ export const TrafficCard = ({ footfall, daily, weekly }) => {
 // Visitors per hour (bars) against a comparison period (dashed line).
 const FootfallView = ({ data, currentLabel, compareLabel }) => (
   data.length ? (
-    <ResponsiveContainer width="100%" height={280}>
-      <ComposedChart data={data} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
-        <CartesianGrid vertical={false} stroke="hsl(var(--border))" strokeDasharray="3 3" />
-        <XAxis dataKey="hour" {...axisProps} tickFormatter={hourLabel} />
-        <YAxis {...axisProps} allowDecimals={false} />
-        <Tooltip content={<CustomTooltip labelFormatter={hourLabel} />} cursor={{ fill: "hsl(var(--muted))", opacity: 0.5 }} />
-        <Legend iconType="circle" wrapperStyle={{ fontSize: 12 }} />
-        <Bar dataKey="current" name={currentLabel} fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} maxBarSize={32} />
-        {compareLabel && (
-          <Line dataKey="compare" name={compareLabel} type="monotone" stroke="hsl(var(--muted-foreground))"
-                strokeWidth={2} strokeDasharray="5 4" dot={false} />
-        )}
-      </ComposedChart>
-    </ResponsiveContainer>
+    <ChartBox>
+      <ResponsiveContainer width="100%" height="100%">
+        <ComposedChart data={data} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
+          <CartesianGrid vertical={false} stroke="hsl(var(--border))" strokeDasharray="3 3" />
+          <XAxis dataKey="hour" {...axisProps} tickFormatter={hourLabel} />
+          <YAxis {...axisProps} allowDecimals={false} />
+          <Tooltip content={<CustomTooltip labelFormatter={hourLabel} />} cursor={{ fill: "hsl(var(--muted))", opacity: 0.5 }} />
+          <Legend iconType="circle" wrapperStyle={{ fontSize: 12 }} />
+          <Bar dataKey="current" name={currentLabel} fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} maxBarSize={32} />
+          {compareLabel && (
+            <Line dataKey="compare" name={compareLabel} type="monotone" stroke="hsl(var(--muted-foreground))"
+                  strokeWidth={2} strokeDasharray="5 4" dot={false} />
+          )}
+        </ComposedChart>
+      </ResponsiveContainer>
+    </ChartBox>
   ) : <Empty>No visitors in this period yet.</Empty>
 );
 
@@ -67,21 +69,23 @@ const DailyView = ({ data }) => {
   const days = data.filter((d) => !d.isToday);
   const avg = days.length ? days.reduce((a, d) => a + d.count, 0) / days.length : 0;
   return data.some((d) => d.count) ? (
-    <ResponsiveContainer width="100%" height={280}>
-      <BarChart data={data} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
-        <CartesianGrid vertical={false} stroke="hsl(var(--border))" strokeDasharray="3 3" />
-        <XAxis dataKey="label" {...axisProps} interval="preserveStartEnd" minTickGap={16} />
-        <YAxis {...axisProps} allowDecimals={false} />
-        <Tooltip content={<CustomTooltip />} cursor={{ fill: "hsl(var(--muted))", opacity: 0.5 }} />
-        {avg > 0 && (
-          <ReferenceLine y={avg} stroke="hsl(var(--muted-foreground))" strokeDasharray="4 4"
-                         label={{ value: `avg ${Math.round(avg)}`, position: "insideTopRight", fill: "hsl(var(--muted-foreground))", fontSize: 11 }} />
-        )}
-        <Bar dataKey="count" name="Visitors" radius={[4, 4, 0, 0]} maxBarSize={28}>
-          {data.map((d) => <Cell key={d.date} fill={d.isToday ? "hsl(var(--primary))" : "hsl(var(--primary) / 0.45)"} />)}
-        </Bar>
-      </BarChart>
-    </ResponsiveContainer>
+    <ChartBox>
+      <ResponsiveContainer width="100%" height="100%">
+        <BarChart data={data} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
+          <CartesianGrid vertical={false} stroke="hsl(var(--border))" strokeDasharray="3 3" />
+          <XAxis dataKey="label" {...axisProps} interval="preserveStartEnd" minTickGap={16} />
+          <YAxis {...axisProps} allowDecimals={false} />
+          <Tooltip content={<CustomTooltip />} cursor={{ fill: "hsl(var(--muted))", opacity: 0.5 }} />
+          {avg > 0 && (
+            <ReferenceLine y={avg} stroke="hsl(var(--muted-foreground))" strokeDasharray="4 4"
+                           label={{ value: `avg ${Math.round(avg)}`, position: "insideTopRight", fill: "hsl(var(--muted-foreground))", fontSize: 11 }} />
+          )}
+          <Bar dataKey="count" name="Visitors" radius={[4, 4, 0, 0]} maxBarSize={28}>
+            {data.map((d) => <Cell key={d.date} fill={d.isToday ? "hsl(var(--primary))" : "hsl(var(--primary) / 0.45)"} />)}
+          </Bar>
+        </BarChart>
+      </ResponsiveContainer>
+    </ChartBox>
   ) : <Empty>No visitors in this period yet.</Empty>;
 };
 
@@ -90,9 +94,10 @@ const BusyTimesView = ({ matrix }) => {
   const { hours, rows, max, peaks } = matrix;
   if (!hours.length) return <Empty>Not enough history yet to show weekly patterns.</Empty>;
   return (
-    <>
-      <div className="overflow-x-auto">
-        <div className="grid min-w-[560px] gap-1" style={{ gridTemplateColumns: `44px repeat(${hours.length}, minmax(0, 1fr))` }}>
+    <ChartBox className="flex flex-col">
+      <div className="min-h-0 flex-1 overflow-x-auto">
+        <div className="grid h-full min-w-[560px] gap-1"
+             style={{ gridTemplateColumns: `44px repeat(${hours.length}, minmax(0, 1fr))`, gridTemplateRows: `auto repeat(${rows.length}, minmax(10px, 1fr))` }}>
           <div />
           {hours.map((h) => <div key={h} className="pb-1 text-center font-mono text-[11px] text-muted-foreground">{h}</div>)}
           {rows.map((r) => (
@@ -102,7 +107,7 @@ const BusyTimesView = ({ matrix }) => {
                 return (
                   <div
                     key={hours[i]}
-                    className="h-7 rounded-md"
+                    className="rounded-md"
                     style={{ background: v ? `hsl(var(--primary) / ${0.1 + intensity * 0.85})` : "hsl(var(--muted) / 0.6)" }}
                     title={`${r.day} ${hourSpan(hours[i])} · about ${Math.round(v)} visitors`}
                   />
@@ -113,11 +118,11 @@ const BusyTimesView = ({ matrix }) => {
         </div>
       </div>
       {peaks.length > 0 && (
-        <p className="mt-4 text-sm text-foreground/90">
+        <p className="mt-2 truncate text-sm text-foreground/90">
           Busiest: {peaks.map((p) => `${p.day} ${hourSpan(p.hour)} (about ${Math.round(p.avg)})`).join(" · ")}
         </p>
       )}
-    </>
+    </ChartBox>
   );
 };
 
@@ -133,29 +138,31 @@ const MATRIX_EMOTIONS = ["Happy", "Neutral", "Surprise", "Sad", "Fear", "Angry",
 
 // One card for everything mood-related: share of each emotion, emotion by age
 // group, and emotion through the day.
-export const MoodCard = ({ shares, moodIndex, moodDelta, ageEmotionMatrix, byHour }) => {
+export const MoodCard = ({ shares, moodIndex, moodDelta, happiestHour, ageEmotionMatrix, byHour }) => {
   const [tab, setTab] = useState("overall");
   const tabs = <Tabs tabs={MOOD_TABS} value={tab} onChange={setTab} />;
   return (
-    <ChartCard title="Mood" description="Estimated from facial expressions — an aggregate signal, not a fact about any one person." action={tabs}>
-      {tab === "overall" && <MoodOverall shares={shares} moodIndex={moodIndex} moodDelta={moodDelta} />}
+    <ChartCard title="Mood" description="Estimated from facial expressions, never a fact about one person." action={tabs}>
+      {tab === "overall" && <MoodOverall shares={shares} moodIndex={moodIndex} moodDelta={moodDelta} happiestHour={happiestHour} />}
       {tab === "age" && <AgeEmotionGrid matrix={ageEmotionMatrix} />}
       {tab === "hour" && <MoodByHour byHour={byHour} />}
     </ChartCard>
   );
 };
 
-const MoodOverall = ({ shares, moodIndex, moodDelta }) => (
-  <div>
-    <div className="flex items-center gap-2 text-sm">
-      <span className="text-muted-foreground">Mood index</span>
+const MoodOverall = ({ shares, moodIndex, moodDelta, happiestHour }) => (
+  <div className="flex min-h-0 flex-1 flex-col">
+    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
       <span className="font-mono text-lg font-semibold">{moodIndex}%</span>
       <Delta value={moodDelta} unit=" pts" />
-      <span className="text-xs text-muted-foreground">share of happy or surprised faces</span>
+      <span className="text-muted-foreground" title="Share of faces that looked happy or surprised">looked happy</span>
+      {happiestHour && <span className="text-muted-foreground">· happiest at {hourSpan(happiestHour)}</span>}
     </div>
-    <ul className="mt-4 space-y-2.5">
+    {/* Two columns, read top to bottom, most common first. */}
+    <ul className="mt-2 grid min-h-0 flex-1 grid-flow-col grid-cols-2 gap-x-5 gap-y-1 overflow-y-auto"
+        style={{ gridTemplateRows: `repeat(${Math.ceil(shares.length / 2)}, minmax(16px, 28px))` }}>
       {shares.map((s) => (
-        <li key={s.name} className="grid grid-cols-[72px_1fr_44px] items-center gap-3 text-sm">
+        <li key={s.name} className="grid grid-cols-[56px_1fr_32px] items-center gap-2 text-xs">
           <span className="text-muted-foreground">{s.name}</span>
           <span className="h-2.5 overflow-hidden rounded-full bg-secondary">
             <span className="block h-full rounded-full" style={{ width: `${Math.max(s.pct, s.value ? 1 : 0)}%`, background: emotionColor(s.name) }} />
@@ -176,18 +183,19 @@ const AgeEmotionGrid = ({ matrix }) => {
     if (d.count > max) max = d.count;
   }
   return (
-    <div className="overflow-x-auto">
-      <div className="grid min-w-[480px]" style={{ gridTemplateColumns: `78px repeat(${MATRIX_EMOTIONS.length}, 1fr)` }}>
+    <ChartBox className="overflow-x-auto">
+      <div className="grid h-full min-w-[420px]"
+           style={{ gridTemplateColumns: `64px repeat(${MATRIX_EMOTIONS.length}, 1fr)`, gridTemplateRows: `auto repeat(${ages.length}, minmax(18px, 1fr))` }}>
         <div />
-        {MATRIX_EMOTIONS.map((e) => <div key={e} className="px-1 pb-2 text-center text-xs font-medium text-muted-foreground">{e}</div>)}
+        {MATRIX_EMOTIONS.map((e) => <div key={e} className="truncate px-0.5 pb-1 text-center text-[11px] font-medium text-muted-foreground">{e}</div>)}
         {ages.map((age) => (
           <LabeledRow key={age} label={age}>
             {MATRIX_EMOTIONS.map((e) => {
               const v = lookup[`${age}|${e}`] || 0;
               const intensity = max ? v / max : 0;
               return (
-                <div key={e} className="p-1">
-                  <div className="grid h-8 place-items-center rounded-md text-xs font-medium"
+                <div key={e} className="p-0.5">
+                  <div className="grid h-full place-items-center rounded-md text-xs font-medium"
                        style={{ background: `hsl(var(--primary) / ${0.08 + intensity * 0.85})`,
                                 color: intensity > 0.55 ? "hsl(var(--primary-foreground))" : "hsl(var(--muted-foreground))" }}
                        title={`${age} · ${e}: ${v}`}>
@@ -199,36 +207,38 @@ const AgeEmotionGrid = ({ matrix }) => {
           </LabeledRow>
         ))}
       </div>
-    </div>
+    </ChartBox>
   );
 };
 
 const MoodByHour = ({ byHour }) => {
   const emotions = Array.from(new Set(byHour.flatMap((h) => Object.keys(h).filter((k) => k !== "hour"))));
   return (
-    <ResponsiveContainer width="100%" height={260}>
-      <AreaChart data={byHour} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
-        <defs>
+    <ChartBox>
+      <ResponsiveContainer width="100%" height="100%">
+        <AreaChart data={byHour} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
+          <defs>
+            {emotions.map((e) => (
+              <linearGradient key={e} id={`mood-grad-${e}`} x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor={emotionColor(e)} stopOpacity={0.35} />
+                <stop offset="100%" stopColor={emotionColor(e)} stopOpacity={0} />
+              </linearGradient>
+            ))}
+          </defs>
+          <CartesianGrid vertical={false} stroke="hsl(var(--border))" strokeDasharray="3 3" />
+          <XAxis dataKey="hour" {...axisProps} tickFormatter={hourLabel} />
+          <YAxis {...axisProps} allowDecimals={false} />
+          <Tooltip content={<CustomTooltip labelFormatter={hourLabel} />} />
+          <Legend iconType="circle" wrapperStyle={{ fontSize: 12 }} />
           {emotions.map((e) => (
-            <linearGradient key={e} id={`mood-grad-${e}`} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor={emotionColor(e)} stopOpacity={0.35} />
-              <stop offset="100%" stopColor={emotionColor(e)} stopOpacity={0} />
-            </linearGradient>
+            <Area key={e} type="monotone" dataKey={e} stroke={emotionColor(e)} strokeWidth={2} fill={`url(#mood-grad-${e})`} />
           ))}
-        </defs>
-        <CartesianGrid vertical={false} stroke="hsl(var(--border))" strokeDasharray="3 3" />
-        <XAxis dataKey="hour" {...axisProps} tickFormatter={hourLabel} />
-        <YAxis {...axisProps} allowDecimals={false} />
-        <Tooltip content={<CustomTooltip labelFormatter={hourLabel} />} />
-        <Legend iconType="circle" wrapperStyle={{ fontSize: 12 }} />
-        {emotions.map((e) => (
-          <Area key={e} type="monotone" dataKey={e} stroke={emotionColor(e)} strokeWidth={2} fill={`url(#mood-grad-${e})`} />
-        ))}
-      </AreaChart>
-    </ResponsiveContainer>
+        </AreaChart>
+      </ResponsiveContainer>
+    </ChartBox>
   );
 };
 
 const Empty = ({ children }) => (
-  <div className="grid h-40 place-items-center rounded-xl bg-secondary/40 text-sm text-muted-foreground">{children}</div>
+  <div className="grid min-h-[160px] flex-1 place-items-center rounded-xl bg-secondary/40 text-sm text-muted-foreground">{children}</div>
 );

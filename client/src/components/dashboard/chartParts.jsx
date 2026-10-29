@@ -31,15 +31,22 @@ export const Delta = ({ value, unit = "%" }) => {
   );
 };
 
+// On wide screens the dashboard fits one page, so cards stretch to their grid
+// row and the body takes whatever height is left under the header.
 export const ChartCard = ({ title, description, action, children, className = "" }) => (
-  <Card className={`p-6 ${className}`}>
-    <div className="flex flex-wrap items-start justify-between gap-3">
-      <div>
+  <Card className={`flex min-h-0 flex-col p-4 ${className}`}>
+    <div className="flex items-start justify-between gap-3">
+      <div className="min-w-0 flex-1">
         <h3 className="text-base font-semibold">{title}</h3>
-        {description && <p className="mt-1 text-sm text-muted-foreground">{description}</p>}
+        {description && <p className="mt-0.5 truncate text-sm text-muted-foreground" title={description}>{description}</p>}
       </div>
-      {action}
+      {action && <div className="shrink-0">{action}</div>}
     </div>
-    <div className="mt-5">{children}</div>
+    <div className="mt-3 flex min-h-0 flex-1 flex-col">{children}</div>
   </Card>
+);
+
+// Chart area: a fixed height when cards stack, the card's remaining height when they fill the page.
+export const ChartBox = ({ children, className = "" }) => (
+  <div className={`h-[260px] min-h-0 xl:h-auto xl:flex-1 ${className}`}>{children}</div>
 );

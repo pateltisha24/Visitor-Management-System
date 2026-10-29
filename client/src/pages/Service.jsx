@@ -3,7 +3,7 @@ import { NavLink } from "react-router-dom";
 import { api } from "../api";
 import { useAuth } from "../store/auth";
 import { FiRefreshCw, FiActivity, FiDatabase, FiDownload, FiRotateCcw, FiX } from "react-icons/fi";
-import { DashboardView } from "../components/dashboard/DashboardView";
+import { DashboardView, WorthALook } from "../components/dashboard/DashboardView";
 import { LivePanel } from "../components/dashboard/LivePanel";
 import { useRealtime } from "../lib/realtime";
 import { sampleSummary, samplePrevSummary, sampleRecent } from "../components/dashboard/sampleData";
@@ -12,7 +12,7 @@ import { Card } from "../components/ui/card";
 import { cn } from "../lib/utils";
 import {
   RANGE_PRESETS, presetRange, previousRange, downloadCSV, fmt, addDays, parseDate,
-  trendRange, dailySeries, footfallSeries, weeklyMatrix, visitorChange,
+  trendRange, dailySeries, footfallSeries, weeklyMatrix, visitorChange, detectAnomalies,
 } from "../lib/format";
 
 const POLL_MS = 10000;
@@ -99,8 +99,11 @@ export const Service = () => {
       const multiDay = preset !== "today";
       const yesterday = fmt(addDays(new Date(), -1));
       const completeR = multiDay && !fresh ? { from: range.from, to: yesterday } : range;
-      // The weekly pattern needs several weeks: on "Today" use the last 4.
-      const weeklyR = multiDay ? completeR : { from: fmt(addDays(new Date(), -28)), to: yesterday };
+      // The weekly pattern needs several weeks: on "Today" use the last 4. Longer
+      // ranges shift back a day so they still span whole weeks (7 days = each weekday once).
+      const weeklyR = !multiDay ? { from: fmt(addDays(new Date(), -28)), to: yesterday }
+        : range.from && !fresh ? { from: fmt(addDays(parseDate(range.from), -1)), to: yesterday }
+        : completeR;
       const get = (path, r, extra) => api.get(`/api/analytics/${path}${queryString(r, extra)}`).then((res) => res.data);
       const [sum, recentRows, prevSum, hourly, hourlyCmp, daily, weekly] = await Promise.all([
         get("summary", range),
@@ -217,14 +220,15 @@ export const Service = () => {
 
   const hasData = summary && summary.total > 0;
 
+  // On wide screens the page is exactly one screen tall and the dashboard fills what's left.
   return (
-    <main className="min-h-[calc(100vh-4rem)] bg-secondary/20">
-      <div className="px-4 py-8 sm:px-6 lg:px-8">
+    <main className="flex min-h-[calc(100vh-4rem)] flex-col bg-secondary/20 xl:h-[calc(100vh-4rem)]">
+      <div className="flex min-h-0 flex-1 flex-col px-4 py-4 sm:px-6 lg:px-8">
         {/* Header */}
-        <div className="flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <h1 className="font-display text-3xl font-bold tracking-tight">Visitor analytics</h1>
-            <p className="mt-1 text-sm text-muted-foreground">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="flex flex-wrap items-baseline gap-x-3">
+            <h1 className="font-display text-2xl font-bold tracking-tight">Visitor analytics</h1>
+            <p className="text-sm text-muted-foreground">
               {user?.organisation ? `${user.organisation} · ` : ""}
               {sample ? "Sample data preview" : "Live insights from your cameras"}
               {lastUpdated && !sample && ` · updated ${lastUpdated.toLocaleTimeString()}`}
@@ -250,7 +254,7 @@ export const Service = () => {
         </div>
 
         {/* Range + filters */}
-        <div className="mt-5 flex flex-wrap items-center gap-2">
+        <div className="mt-3 flex flex-wrap items-center gap-2">
           <Segmented options={RANGE_PRESETS.map((r) => ({ v: r.key, l: r.label }))} value={preset} onChange={setPreset} />
           <span className="mx-1 hidden h-5 w-px bg-border sm:block" />
           <Segmented options={GENDER_OPTS} value={filters.gender} onChange={(v) => setFilters((f) => ({ ...f, gender: v }))} />
@@ -269,17 +273,18 @@ export const Service = () => {
               <button onClick={clearFresh} title="Show all readings again" className="hover:text-foreground"><FiX /></button>
             </span>
           )}
+          {hasData && !loading && <div className="ml-auto"><WorthALook items={detectAnomalies(summary.byHour || [])} /></div>}
         </div>
 
         {/* Live camera view + activity (needs the realtime server) */}
         {realtimeLive && !sample && (
-          <div className="mt-6">
+          <div className="mt-4">
             <LivePanel cameras={realtime.cameras} subscribeFrames={realtime.subscribeFrames} setPreview={realtime.setPreview} activity={activity} />
           </div>
         )}
 
         {/* Body */}
-        <div className="mt-6">
+        <div className="mt-4 min-h-0 flex-1">
           {loading ? (
             <SkeletonGrid />
           ) : hasData ? (
