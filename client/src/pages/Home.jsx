@@ -147,7 +147,7 @@ export const Home = () => {
                 Everything happening in your space, quantified
               </h2>
             </div>
-            <DemoButton variant="outline">View a live dashboard <FiArrowUpRight /></DemoButton>
+            <DemoButton variant="outline">Try the demo <FiArrowUpRight /></DemoButton>
           </div>
           <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
             {features.map((f) => (

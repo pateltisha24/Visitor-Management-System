@@ -1,16 +1,17 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
-import { FiGrid, FiPlay } from "react-icons/fi";
+import { FiPlay } from "react-icons/fi";
 import { useAuth } from "../store/auth";
 import { Button } from "./ui/button";
 
 // The one way into the demo, wherever it's offered: signs into the shared,
-// read-only demo account and opens the dashboard, with no sign-up. Someone
-// already signed in goes straight to their own dashboard instead.
+// read-only demo account and opens its sample dashboard, with no sign-up. It
+// only ever means the demo, so it's hidden from someone signed into their own
+// account (their dashboard is in the account menu).
 //   onDone: runs before navigating (e.g. to close the mobile menu)
 export const DemoButton = ({ children, onDone, ...props }) => {
-  const { isLoggedIn, enterDemo } = useAuth();
+  const { isLoggedIn, isDemo, enterDemo } = useAuth();
   const navigate = useNavigate();
   const [opening, setOpening] = useState(false);
 
@@ -28,10 +29,10 @@ export const DemoButton = ({ children, onDone, ...props }) => {
     navigate("/service");
   };
 
-  const label = isLoggedIn ? <><FiGrid /> Open your dashboard</> : children || <><FiPlay /> Explore the live demo</>;
+  if (isLoggedIn && !isDemo) return null;
   return (
     <Button {...props} onClick={open} disabled={opening}>
-      {opening ? "Opening the demo…" : label}
+      {opening ? "Opening the demo…" : children || <><FiPlay /> Explore the live demo</>}
     </Button>
   );
 };
