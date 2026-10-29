@@ -25,7 +25,7 @@ export const Delta = ({ value, unit = "%" }) => {
   if (value == null) return null;
   const up = value >= 0;
   return (
-    <span className={`inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-xs font-medium ${up ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" : "bg-red-500/10 text-red-600 dark:text-red-400"}`}>
+    <span className={`inline-flex shrink-0 items-center gap-0.5 whitespace-nowrap rounded-full px-1.5 py-0.5 text-xs font-medium ${up ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" : "bg-red-500/10 text-red-600 dark:text-red-400"}`}>
       {up ? <FiArrowUp size={11} /> : <FiArrowDown size={11} />}{Math.abs(value)}{Math.abs(value) === 1 && unit === " pts" ? " pt" : unit}
     </span>
   );

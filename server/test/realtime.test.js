@@ -199,12 +199,16 @@ test("Ask: questions are checked and the facts are worked out in advance", () =>
         now: { date: "2026-10-29", weekday: "Thursday", time: "13:10" },
         weekly: { hours: ["09", "12"], rows: [{ day: "Mon", values: [4, 20] }, { day: "Sat", values: [10, 50.4] }] },
     });
-    assert.strictEqual(facts.todaySoFarVsSameTimeLastWeek, "-18%");
-    assert.deepStrictEqual(facts.visitorsPerDayLast30Days, ["Thu 29 Oct (today, so far): 40"]);
+    assert.strictEqual(facts.theDayVsSameTimeAWeekEarlier, "-18%");
+    assert.deepStrictEqual(facts.visitorsPerDayFor30DaysToTheDay, ["Thu 29 Oct (today, so far): 40"]);
     assert.deepStrictEqual(facts.visitorsPerMonth, ["Sep 2026: 9,000 over 30 days, about 300 a day", "Oct 2026 (so far): 8,000"]);
-    assert.deepStrictEqual(facts.todayByHourVsSameDayLastWeek, [                // 2 pm hasn't happened yet
-        "12–1 pm: 40 today, 52 last Thursday", "1–2 pm (in progress): 3 today, 48 last Thursday",
+    assert.deepStrictEqual(facts.theDayByHourVsAWeekEarlier, [                // 2 pm hasn't happened yet
+        "12–1 pm: 40 that day, 52 last Thursday", "1–2 pm (in progress): 3 that day, 48 last Thursday",
     ]);
-    assert.deepStrictEqual(facts.typicalWeekLast4Weeks.averageVisitorsByWeekday, ["Mon: about 24", "Sat: about 60"]);
-    assert.strictEqual(facts.typicalWeekLast4Weeks.busiestTimesOfTheWeek[0], "Sat 12–1 pm (about 50)");
+    // A past day is complete: every hour counts.
+    const past = askFacts({ summary, hourly: [{ hour: "14", current: 7, compare: 45 }], now: { date: "2026-10-20", weekday: "Tuesday", time: "23:59", isToday: false } });
+    assert.deepStrictEqual(past.theDayByHourVsAWeekEarlier, ["2–3 pm: 7 that day, 45 the Tuesday before"]);
+    assert.match(past.dayAskedAbout, /past day, complete/);
+    assert.deepStrictEqual(facts.typicalWeekFor4WeeksBefore.averageVisitorsByWeekday, ["Mon: about 24", "Sat: about 60"]);
+    assert.strictEqual(facts.typicalWeekFor4WeeksBefore.busiestTimesOfTheWeek[0], "Sat 12–1 pm (about 50)");
 });

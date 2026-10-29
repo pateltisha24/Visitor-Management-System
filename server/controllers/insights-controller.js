@@ -100,21 +100,24 @@ function askFacts({ summary, previous, change, daily = [], monthly = [], hourly 
     };
     const monthLabel = (m) => `${MONTH[Number(m.slice(5, 7)) - 1]} ${m.slice(0, 4)}`;
     const n = (v) => Math.round(v).toLocaleString("en-US");
-    const lastWeek = now?.weekday ? `last ${now.weekday}` : "a week ago";
+    // The day asked about is today (still in progress) or a complete past day.
+    const isToday = now?.isToday !== false;
+    const weekEarlier = now?.weekday ? (isToday ? `last ${now.weekday}` : `the ${now.weekday} before`) : "a week earlier";
     // Hours that haven't happened yet today aren't "empty", so leave them out.
-    const nowHour = now?.time ? Number(now.time.slice(0, 2)) : 23;
+    const nowHour = isToday && now?.time ? Number(now.time.slice(0, 2)) : 23;
     return {
-        now: now ? `${now.weekday} ${now.date}, ${now.time} (today is still in progress)` : null,
-        today: { ...summaryFacts(summary), cameBackLaterSameDay: summary.returning ?? null },
-        todaySoFarVsSameTimeLastWeek: change == null ? null : `${change > 0 ? "+" : ""}${change}%`,
-        todayByHourVsSameDayLastWeek: hourly.filter((h) => Number(h.hour) <= nowHour && (h.current || h.compare))
-            .map((h) => `${hourSpan(h.hour)}${Number(h.hour) === nowHour ? " (in progress)" : ""}: ${n(h.current || 0)} today`
-                + (h.compare == null ? "" : `, ${n(h.compare)} ${lastWeek}`)),
-        sameWeekdayLastWeekWholeDay: previous?.total ? summaryFacts(previous) : null,
-        visitorsPerDayLast30Days: daily.map((d) => `${dayLabel(d.date)}${d.isToday ? " (today, so far)" : ""}: ${d.count}`),
+        dayAskedAbout: now ? (isToday ? `today, ${now.weekday} ${now.date}, ${now.time} (still in progress)`
+            : `${now.weekday} ${now.date} (a past day, complete)`) : null,
+        theDay: { ...summaryFacts(summary), cameBackLaterSameDay: summary.returning ?? null },
+        theDayVsSameTimeAWeekEarlier: change == null ? null : `${change > 0 ? "+" : ""}${change}%`,
+        theDayByHourVsAWeekEarlier: hourly.filter((h) => Number(h.hour) <= nowHour && (h.current || h.compare))
+            .map((h) => `${hourSpan(h.hour)}${isToday && Number(h.hour) === nowHour ? " (in progress)" : ""}: ${n(h.current || 0)} that day`
+                + (h.compare == null ? "" : `, ${n(h.compare)} ${weekEarlier}`)),
+        sameWeekdayAWeekEarlierWholeDay: previous?.total ? summaryFacts(previous) : null,
+        visitorsPerDayFor30DaysToTheDay: daily.map((d) => `${dayLabel(d.date)}${d.isToday ? (isToday ? " (today, so far)" : " (the day asked about)") : ""}: ${d.count}`),
         visitorsPerMonth: monthly.map((m) => `${monthLabel(m.month)}${m.isCurrent ? " (so far)" : ""}: ${n(m.count)}`
             + (m.days ? ` over ${m.days} days, about ${n(m.count / m.days)} a day` : "")),
-        typicalWeekLast4Weeks: weeklyFacts(weekly),
+        typicalWeekFor4WeeksBefore: weeklyFacts(weekly),
     };
 }
 
@@ -129,8 +132,8 @@ function buildAskPrompt(question, facts) {
         "  distribution, demographic, data, metrics.",
         "- Use the numbers and times exactly as given; don't make up new ones.",
         "- Expressions are estimated from faces, so say people 'seemed' or 'looked' happy.",
-        "- Today is still in progress. Compare today with last week ONLY with todaySoFarVsSameTimeLastWeek",
-        "  and the hours so far; never compare today's total with last week's whole day.",
+        "- The facts are about dayAskedAbout. If it is still in progress, compare it with a week earlier",
+        "  ONLY with theDayVsSameTimeAWeekEarlier and the hours so far, never with a whole past day.",
         "- For planning questions (staffing, best or worst days and times), use the typical week.",
         "- Answer first, then one practical suggestion if there's an obvious one.",
         "- At most 80 words. Plain sentences, or up to 4 bullets starting with \"- \". No headings, no bold.",

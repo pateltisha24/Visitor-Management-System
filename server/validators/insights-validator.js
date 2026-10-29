@@ -19,7 +19,9 @@ const askSchema = z.object({
         hours: z.array(z.string().max(2)).max(24),
         rows: z.array(z.object({ day: z.string().max(3), values: z.array(z.number().min(0)).max(24) })).max(7),
     }).nullable().optional(),
-    now: z.object({ date: z.string().max(10), weekday: z.string().max(12), time: z.string().max(5) }).optional(),
+    now: z.object({
+        date: z.string().max(10), weekday: z.string().max(12), time: z.string().max(5), isToday: z.boolean().optional(),
+    }).optional(),
 });
 
 module.exports = { askSchema };

@@ -4,6 +4,7 @@ import { api } from "../api";
 import { useAuth } from "../store/auth";
 import { FiRefreshCw, FiActivity, FiDatabase, FiDownload, FiRotateCcw, FiX } from "react-icons/fi";
 import { DashboardView, WorthALook } from "../components/dashboard/DashboardView";
+import { DayPicker } from "../components/dashboard/DayPicker";
 import { LivePanel } from "../components/dashboard/LivePanel";
 import { useRealtime } from "../lib/realtime";
 import { sampleSummary, samplePrevSummary, sampleRecent } from "../components/dashboard/sampleData";
@@ -11,7 +12,7 @@ import { Button } from "../components/ui/button";
 import { Card } from "../components/ui/card";
 import { cn } from "../lib/utils";
 import {
-  lastDays, downloadCSV, fmt, addDays, dailySeries, monthlySeries,
+  lastDays, downloadCSV, fmt, addDays, parseDate, dailySeries, monthlySeries,
   footfallSeries, typicalDay, weeklyMatrix, visitorChange, detectAnomalies, personLabel,
 } from "../lib/format";
 
@@ -34,11 +35,19 @@ export const Service = () => {
   const [recent, setRecent] = useState([]);
   const [trends, setTrends] = useState(null);
   const [change, setChange] = useState(null);   // like-for-like visitor change
-  // The dashboard is always about today; comparisons are with the same weekday
-  // last week, and the Traffic card's tabs give the longer view.
-  const weekday = new Date().toLocaleDateString(undefined, { weekday: "long" });
-  const compareLabel = `last ${weekday}`;
-  const compareShort = `last ${new Date().toLocaleDateString(undefined, { weekday: "short" })}`;
+  // The dashboard shows one day: today unless another is picked (null = today,
+  // so it rolls over at midnight). Comparisons are with the same weekday a week
+  // earlier, and the Traffic card's tabs give the longer view around it.
+  const [picked, setPicked] = useState(null);
+  const [days, setDays] = useState([]);   // dates with visitors, for the calendar
+  const today = fmt(new Date());
+  const day = picked || today;
+  const isToday = day === today;
+  const weekday = parseDate(day).toLocaleDateString(undefined, { weekday: "long" });
+  const weekdayShort = parseDate(day).toLocaleDateString(undefined, { weekday: "short" });
+  const compareLabel = isToday ? `last ${weekday}` : `the ${weekday} before`;
+  const compareShort = isToday ? `last ${weekdayShort}`
+    : addDays(parseDate(day), -7).toLocaleDateString(undefined, { month: "short", day: "numeric" });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [live, setLive] = useState(true);
@@ -67,11 +76,11 @@ export const Service = () => {
     if (range?.to) p.set("to", range.to);
     if (filters.camera) p.set("camera", filters.camera);
     if (sample) p.set("sample", "true");   // request the seeded demo data
-    else if (since) p.set("since", since);
+    else if (since && isToday) p.set("since", since);   // "start fresh" is about today
     Object.entries(extra).forEach(([k, v]) => v != null && p.set(k, v));
     const s = p.toString();
     return s ? `?${s}` : "";
-  }, [filters, sample, since]);
+  }, [filters, sample, since, isToday]);
 
   const fetchAll = useCallback(async () => {
     const myId = ++reqId.current;
@@ -83,24 +92,25 @@ export const Service = () => {
     }
     lastFetchAt.current = Date.now();
     try {
-      const today = fmt(new Date());
-      const yesterday = fmt(addDays(new Date(), -1));
-      const range = { from: today, to: today };
+      const date = parseDate(day);
+      const range = { from: day, to: day };
       // A fresh session has no meaningful "before" to compare against.
-      const fresh = since && !sample;
-      const lastWeek = fmt(addDays(new Date(), -7));
-      const lastWeekR = fresh ? null : { from: lastWeek, to: lastWeek };
-      const dailyR = lastDays(30);
-      const monthlyR = { from: fmt(new Date(new Date().getFullYear(), new Date().getMonth() - 11, 1)), to: today };
-      // The weekly pattern averages the last 4 complete weeks.
-      const weeklyR = { from: fmt(addDays(new Date(), -28)), to: yesterday };
+      const fresh = since && !sample && isToday;
+      const weekEarlier = fmt(addDays(date, -7));
+      const weekEarlierR = fresh ? null : { from: weekEarlier, to: weekEarlier };
+      const dailyR = lastDays(30, date);
+      const monthlyR = { from: fmt(new Date(date.getFullYear(), date.getMonth() - 11, 1)), to: day };
+      // The weekly pattern averages the 4 complete weeks before the day.
+      const weeklyR = { from: fmt(addDays(date, -28)), to: fmt(addDays(date, -1)) };
+      // A past day is complete; today only up to now.
+      const nowHour = isToday ? new Date().getHours() : 23;
       const get = (path, r, extra) => api.get(`/api/analytics/${path}${queryString(r, extra)}`).then((res) => res.data);
       const [sum, recentRows, prevSum, hourly, hourlyCmp, daily, monthly, weekly] = await Promise.all([
         get("summary", range),
         get("recent", range, { limit: 10 }),
-        lastWeekR ? get("summary", lastWeekR) : null,
+        weekEarlierR ? get("summary", weekEarlierR) : null,
         get("hourly", range),
-        lastWeekR ? get("hourly", lastWeekR) : null,
+        weekEarlierR ? get("hourly", weekEarlierR) : null,
         get("daily", dailyR),
         get("monthly", monthlyR),
         get("weekly", weeklyR),
@@ -109,27 +119,33 @@ export const Service = () => {
       setSummary(sum);
       setRecent(recentRows || []);
       setPrev(prevSum);
-      setChange(fresh ? null : visitorChange({ summary: sum, hourlyCmp, compareWeekday: weekday }));
+      setChange(fresh ? null : visitorChange({
+        summary: sum, hourlyCmp, nowHour,
+        label: isToday ? `the same time last ${weekday}` : `the ${weekday} before`,
+      }));
+      const shortDate = date.toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" });
+      const prevName = isToday ? `Last ${weekday}` : `The ${weekday} before`;
       setTrends({
         footfall: {
-          data: footfallSeries(hourly, hourlyCmp, { expected: typicalDay(weekly?.cells, new Date().getDay()), nowHour: new Date().getHours() }),
-          description: hourlyCmp ? `Visitors per hour today, against last ${weekday}.` : "Visitors per hour today.",
-          currentLabel: "Today",
-          compareLabel: hourlyCmp ? `Last ${weekday}` : null,
+          // Only today has hours still to come, shown as a typical day.
+          data: footfallSeries(hourly, hourlyCmp, isToday ? { expected: typicalDay(weekly?.cells, date.getDay()), nowHour } : {}),
+          description: `Visitors per hour ${isToday ? "today" : `on ${shortDate}`}${hourlyCmp ? `, against ${isToday ? `last ${weekday}` : `the ${weekday} before`}` : ""}.`,
+          currentLabel: isToday ? "Today" : shortDate,
+          compareLabel: hourlyCmp ? prevName : null,
           expectedLabel: `Typical ${weekday}`,
-          nowHour: new Date().getHours(),
+          nowHour: isToday ? nowHour : null,
         },
         daily: {
-          data: dailySeries(daily, dailyR.from, dailyR.to),
-          description: "Visitors per day over the last 30 days; today is highlighted.",
+          data: dailySeries(daily, dailyR.from, dailyR.to, day),
+          description: `Visitors per day over the 30 days to ${isToday ? "today" : shortDate}, which is highlighted.`,
         },
         monthly: {
-          data: monthlySeries(monthly),
-          description: "Visitors per month; this month so far is highlighted.",
+          data: monthlySeries(monthly, 12, date),
+          description: isToday ? "Visitors per month; this month so far is highlighted." : "Visitors per month; the chosen day's month is highlighted.",
         },
         weekly: {
           matrix: weeklyMatrix(weekly?.cells || []),
-          description: "Your regular week over the last 4 weeks — darker means busier.",
+          description: `Your regular week over the 4 weeks before ${isToday ? "today" : shortDate} — darker means busier.`,
         },
       });
       setError(false); setLastUpdated(new Date());
@@ -138,21 +154,22 @@ export const Service = () => {
     } finally {
       if (myId === reqId.current) setLoading(false);
     }
-  }, [isOffline, queryString, since, sample, weekday]);
+  }, [isOffline, queryString, since, sample, day, isToday, weekday]);
 
   useEffect(() => { setLoading(true); fetchAll(); }, [fetchAll]);
 
   useEffect(() => {
     clearInterval(timer.current);
-    if (live && !sample && !isOffline) timer.current = setInterval(fetchAll, realtimeLive ? POLL_MS_REALTIME : POLL_MS);
+    if (live && !sample && !isOffline && isToday) timer.current = setInterval(fetchAll, realtimeLive ? POLL_MS_REALTIME : POLL_MS);
     return () => clearInterval(timer.current);
-  }, [live, sample, isOffline, fetchAll, realtimeLive]);
+  }, [live, sample, isOffline, isToday, fetchAll, realtimeLive]);
 
   // Refetch soon after a new reading arrives, throttled so a busy camera can't
   // flood the API (the latest fetchAll is read through a ref).
   const fetchAllRef = useRef(fetchAll);
   useEffect(() => { fetchAllRef.current = fetchAll; }, [fetchAll]);
-  const liveRefresh = live && !sample && !isOffline;
+  // A past day doesn't change, so new readings only refresh today.
+  const liveRefresh = live && !sample && !isOffline && isToday;
   const liveRefreshRef = useRef(liveRefresh);
   useEffect(() => { liveRefreshRef.current = liveRefresh; }, [liveRefresh]);
   useEffect(() => () => clearTimeout(refreshTimer.current), []);
@@ -186,6 +203,16 @@ export const Service = () => {
     return () => { cancelled = true; };
   }, [isOffline, sample, onlineCameras]);
 
+  // Days with visitors, for the calendar (refreshed when sample data is toggled).
+  useEffect(() => {
+    if (isOffline) return;
+    let cancelled = false;
+    api.get(`/api/analytics/dates${sample ? "?sample=true" : ""}`)
+      .then((res) => { if (!cancelled) setDays(res.data || []); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [isOffline, sample]);
+
   // Drop a camera filter that no longer applies (e.g. after toggling sample data).
   useEffect(() => {
     if (filters.camera && !cameraOptions.some((c) => c.cameraId === filters.camera)) {
@@ -195,7 +222,7 @@ export const Service = () => {
 
   const startFresh = () => {
     const now = new Date().toISOString();
-    writeSince(now); setSince(now); setActivity([]);
+    writeSince(now); setSince(now); setPicked(null); setActivity([]);
   };
   const clearFresh = () => { writeSince(""); setSince(""); };
 
@@ -248,9 +275,12 @@ export const Service = () => {
 
         {/* Day + camera filter */}
         <div className="mt-3 flex flex-wrap items-center gap-2">
-          <span className="rounded-full border border-border bg-card px-3 py-1.5 text-sm font-medium">
-            Today · {new Date().toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long" })}
-          </span>
+          <DayPicker value={day} today={today} available={days} onChange={(d) => setPicked(d === today ? null : d)} />
+          {!isToday && (
+            <button onClick={() => setPicked(null)} className="rounded-full px-2 py-1 text-xs font-medium text-primary hover:bg-primary/10">
+              Back to today
+            </button>
+          )}
           <span className="mx-1 hidden h-5 w-px bg-border sm:block" />
           {cameraOptions.length > 0 && (
             <Segmented
@@ -260,7 +290,7 @@ export const Service = () => {
             />
           )}
           {sample && <span className="text-xs font-medium text-primary">Viewing sample data</span>}
-          {since && !sample && (
+          {since && !sample && isToday && (
             <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
               Counting since {new Date(since).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}
               <button onClick={clearFresh} title="Show all readings again" className="hover:text-foreground"><FiX /></button>
@@ -270,7 +300,7 @@ export const Service = () => {
         </div>
 
         {/* Live camera view + activity (needs the realtime server) */}
-        {realtimeLive && !sample && (
+        {realtimeLive && !sample && isToday && (
           <div className="mt-4">
             <LivePanel cameras={realtime.cameras} subscribeFrames={realtime.subscribeFrames} setPreview={realtime.setPreview} activity={activity} />
           </div>
@@ -281,9 +311,9 @@ export const Service = () => {
           {loading ? (
             <SkeletonGrid />
           ) : hasData ? (
-            <DashboardView summary={summary} prevSummary={prev} recent={recent} trends={trends} context={{ compareLabel, compareShort, visitorChange: change }} />
+            <DashboardView summary={summary} prevSummary={prev} recent={recent} trends={trends} context={{ compareLabel, compareShort, visitorChange: change, day, isToday }} />
           ) : (
-            <EmptyState error={error} fresh={!!since && !sample} onSample={() => setSample(true)} />
+            <EmptyState error={error} fresh={!!since && !sample && isToday} onSample={() => setSample(true)} />
           )}
         </div>
       </div>

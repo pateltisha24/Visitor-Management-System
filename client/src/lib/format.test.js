@@ -181,7 +181,7 @@ describe("emotionShares", () => {
 describe("visitorChange", () => {
   it("compares today so far with the same weekday last week up to the same hour", () => {
     const c = visitorChange({
-      summary: { total: 30 }, compareWeekday: "Thursday", nowHour: 11,
+      summary: { total: 30 }, label: "the same time last Thursday", nowHour: 11,
       hourlyCmp: { hours: [{ hour: "09", count: 10 }, { hour: "11", count: 30 }, { hour: "18", count: 500 }], days: 1 },
     });
     expect(c).toEqual({ pct: -25, label: "the same time last Thursday" });   // 30 vs 40, not vs 540

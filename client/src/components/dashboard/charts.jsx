@@ -106,7 +106,7 @@ const DailyView = ({ data }) => {
   ) : <Empty>No visitors in this period yet.</Empty>;
 };
 
-// Visitors per month, the month in progress highlighted and labelled "so far".
+// Visitors per month, the chosen day's month highlighted; the month in progress says "so far".
 const MonthlyView = ({ data }) => (
   data.length ? (
     <ChartBox>
@@ -115,7 +115,7 @@ const MonthlyView = ({ data }) => (
           <CartesianGrid vertical={false} stroke="hsl(var(--border))" strokeDasharray="3 3" />
           <XAxis dataKey="label" {...axisProps} />
           <YAxis {...axisProps} allowDecimals={false} tickFormatter={num} />
-          <Tooltip content={<CustomTooltip labelFormatter={(l) => (l === data[data.length - 1].label ? `${l} (so far)` : l)} />}
+          <Tooltip content={<CustomTooltip labelFormatter={(l) => (data.find((d) => d.label === l)?.inProgress ? `${l} (so far)` : l)} />}
                    cursor={{ fill: "hsl(var(--muted))", opacity: 0.5 }} />
           <Bar dataKey="count" name="Visitors" radius={[4, 4, 0, 0]} maxBarSize={48}>
             {data.map((d) => <Cell key={d.month} fill={d.isCurrent ? "hsl(var(--primary))" : "hsl(var(--primary) / 0.45)"} />)}

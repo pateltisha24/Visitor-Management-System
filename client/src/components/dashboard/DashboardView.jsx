@@ -36,16 +36,17 @@ const SummaryCard = ({ insights, askContext }) => {
   );
 };
 
-const SUGGESTED_QUESTIONS = [
+const suggestedQuestions = (isToday) => [
   "When do I need extra staff?",
-  "How is today going compared with last week?",
+  isToday ? "How is today going compared with last week?" : "How did this day compare with the week before?",
   "Which day of the week is busiest?",
   "Are visitor numbers growing month to month?",
 ];
 
-// The numbers this page is showing, in the shape /api/ai/ask expects.
-const askPayload = ({ summary, prevSummary, trends, change }) => {
-  const now = new Date();
+// The numbers this page is showing, in the shape /api/ai/ask expects. For a
+// past day, "now" is that day after closing, so it reads as a complete day.
+const askPayload = ({ summary, prevSummary, trends, change, day, isToday = true }) => {
+  const now = isToday || !day ? new Date() : new Date(`${day}T23:59:00`);
   return {
     summary,
     previous: prevSummary || null,
@@ -58,6 +59,7 @@ const askPayload = ({ summary, prevSummary, trends, change }) => {
       date: fmt(now),
       weekday: now.toLocaleDateString("en-GB", { weekday: "long" }),
       time: now.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }),
+      isToday,
     },
   };
 };
@@ -87,7 +89,7 @@ const AskPanel = ({ askContext, className = "" }) => {
 
   const suggestions = (
     <div className="mt-2 flex flex-wrap gap-1.5">
-      {SUGGESTED_QUESTIONS.filter((s) => s !== asked).map((s) => (
+      {suggestedQuestions(askContext.isToday ?? true).filter((s) => s !== asked).map((s) => (
         <button key={s} onClick={() => ask(s)} disabled={loading || isOffline}
                 className="rounded-full border border-border px-2.5 py-1 text-xs text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground disabled:opacity-50">
           {s}
@@ -137,9 +139,9 @@ const StatCard = ({ icon: Icon, label, value, sub, delta, deltaUnit, deltaNote }
       <Icon size={15} className="shrink-0 text-primary" />
     </div>
     <div className="mt-1 flex items-center gap-2">
-      <span className="truncate font-mono text-xl font-semibold tracking-tight">{value}</span>
+      <span className="shrink-0 font-mono text-xl font-semibold tracking-tight">{value}</span>
       {delta != null && <Delta value={delta} unit={deltaUnit} />}
-      {delta != null && deltaNote && <span className="truncate text-xs text-muted-foreground">{deltaNote}</span>}
+      {delta != null && deltaNote && <span className="min-w-0 truncate text-xs text-muted-foreground">{deltaNote}</span>}
     </div>
     {sub && <div className="mt-0.5 truncate text-xs text-muted-foreground" title={sub}>{sub}</div>}
   </Card>
@@ -223,7 +225,7 @@ export const DashboardView = ({ summary, prevSummary, recent = [], trends, conte
       {/* Traffic (the staffing question) + the written summary */}
       <div className="grid min-h-0 gap-4 xl:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
         {trends && <TrafficCard {...trends} />}
-        <SummaryCard insights={insights} askContext={{ summary, prevSummary, trends, change: totalDelta }} />
+        <SummaryCard insights={insights} askContext={{ summary, prevSummary, trends, change: totalDelta, day: context.day, isToday: context.isToday }} />
       </div>
 
       {/* Who is visiting, how they seemed, and who just came in */}
@@ -244,7 +246,8 @@ export const DashboardView = ({ summary, prevSummary, recent = [], trends, conte
         </ChartCard>
         <MoodCard shares={shares} moodIndex={pos} moodDelta={posDelta} happiestHour={happiest?.happy ? happiest.hour : null}
                   ageEmotionMatrix={ageEmotionMatrix} byHour={byHour} />
-        <ChartCard title="Recent visitors" description="The latest visitors as they arrive.">
+        <ChartCard title={context.isToday === false ? "Last visitors" : "Recent visitors"}
+                   description={context.isToday === false ? "The last visitors counted that day." : "The latest visitors as they arrive."}>
           <ul className="-mx-2 max-h-[260px] min-h-0 flex-1 space-y-0.5 overflow-y-auto xl:max-h-none">
             {recent.length ? recent.map((r) => (
               <li key={r._id} className="flex items-center gap-3 rounded-lg px-2 py-1.5 hover:bg-secondary/60">

@@ -126,15 +126,15 @@ export function detectAnomalies(byHour = []) {
   return out;
 }
 
-// Like-for-like visitor change, so a day still in progress isn't compared with
-// a complete one: today so far vs the same weekday last week up to the same hour.
-// Returns {pct, label} or null.
-export function visitorChange({ summary, hourlyCmp, compareWeekday, nowHour = new Date().getHours() }) {
+// Like-for-like visitor change against the same weekday a week earlier, so a
+// day still in progress isn't compared with a complete one: only the hours up
+// to `nowHour` count (pass 23 for a past day). Returns {pct, label} or null.
+export function visitorChange({ summary, hourlyCmp, label, nowHour = new Date().getHours() }) {
   if (!hourlyCmp) return null;
   const baseline = (hourlyCmp.hours || []).filter((h) => Number(h.hour) <= nowHour).reduce((a, h) => a + h.count, 0);
   if (!baseline) return null;
   const current = summary?.total || 0;
-  return { pct: Math.round(((current - baseline) / baseline) * 100), label: `the same time last ${compareWeekday}` };
+  return { pct: Math.round(((current - baseline) / baseline) * 100), label };
 }
 
 // Plain-language takeaways for the current view.
@@ -235,9 +235,9 @@ export function dailySeries(rows = [], from, to, today = fmt(new Date())) {
   return out;
 }
 
-// [{month: "YYYY-MM", count}] -> one bar per month over the last n months,
-// starting at the first month with visitors (gaps after that become 0). The
-// current month is marked since it's still in progress.
+// [{month: "YYYY-MM", count}] -> one bar per month over the n months up to
+// `now`'s, starting at the first month with visitors (gaps after that become 0).
+// `now`'s month is marked, and `inProgress` if it's the real current month.
 export function monthlySeries(rows = [], n = 12, now = new Date()) {
   const counts = Object.fromEntries(rows.map((r) => [r.month, r.count]));
   const days = Object.fromEntries(rows.map((r) => [r.month, r.days]));
@@ -255,6 +255,7 @@ export function monthlySeries(rows = [], n = 12, now = new Date()) {
       count: counts[month] || 0,
       days: days[month] || 0,
       isCurrent: i === shown.length - 1,
+      inProgress: month === fmt(new Date()).slice(0, 7),
     };
   });
 }
