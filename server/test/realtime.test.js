@@ -130,3 +130,21 @@ test("ingestSchema: cameraId must be a slug", () => {
     assert.strictEqual(ingestSchema.safeParse({ ...base, cameraId: "front-desk", cameraName: "Front desk" }).success, true);
     assert.strictEqual(ingestSchema.safeParse({ ...base, cameraId: "front desk!" }).success, false);
 });
+
+test("weeklyGrid: averages per weekday x hour over the days that had visitors", () => {
+    const { weeklyGrid } = require("../controllers/analytics-controller");
+    // 2026-10-24 and 2026-10-31 are Saturdays; 2026-10-26 is a Monday.
+    const { cells, days } = weeklyGrid([
+        { date: "2026-10-24", hour: "12", count: 10 },
+        { date: "2026-10-31", hour: "12", count: 20 },
+        { date: "2026-10-31", hour: "18", count: 6 },
+        { date: "2026-10-26", hour: "09", count: 3 },
+        { date: "", hour: "10", count: 99 },          // malformed rows are ignored
+    ]);
+    const cell = (dow, hour) => cells.find((c) => c.dow === dow && c.hour === hour)?.avg;
+    assert.strictEqual(cell(6, "12"), 15);             // (10 + 20) / 2 Saturdays
+    assert.strictEqual(cell(6, "18"), 3);              // 6 over the same 2 Saturdays
+    assert.strictEqual(cell(1, "09"), 3);              // one Monday
+    assert.deepStrictEqual(days, { 1: 1, 6: 2 });
+    assert.strictEqual(cell(0, "10"), undefined);
+});

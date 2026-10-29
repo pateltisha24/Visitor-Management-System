@@ -1,7 +1,8 @@
 import { describe, it, expect } from "vitest";
 import {
   presetRange, previousRange, pctDelta, positivityIndex, hourTotals,
-  buildInsights, detectAnomalies,
+  buildInsights, detectAnomalies, fmt, parseDate, trendRange, dailySeries,
+  footfallSeries, weeklyMatrix, emotionShares,
 } from "./format";
 
 describe("pctDelta", () => {
@@ -81,5 +82,65 @@ describe("detectAnomalies", () => {
   });
   it("returns nothing with too little data", () => {
     expect(detectAnomalies([{ hour: "09", Happy: 1 }])).toEqual([]);
+  });
+});
+
+describe("local dates", () => {
+  it("fmt uses the local calendar day, not UTC", () => {
+    // 23:30 local on Oct 27 is still Oct 27 whatever the offset.
+    expect(fmt(new Date(2026, 9, 27, 23, 30))).toBe("2026-10-27");
+  });
+  it("parseDate reads YYYY-MM-DD as a local day", () => {
+    const d = parseDate("2026-10-27");
+    expect([d.getFullYear(), d.getMonth(), d.getDate()]).toEqual([2026, 9, 27]);
+  });
+});
+
+describe("trendRange / dailySeries", () => {
+  it("'today' widens to the last 14 days", () => {
+    expect(trendRange("today", new Date(2026, 9, 29))).toEqual({ from: "2026-10-16", to: "2026-10-29" });
+  });
+  it("fills missing days with zero and marks today", () => {
+    const s = dailySeries([{ date: "2026-10-27", count: 5 }, { date: "2026-10-29", count: 2 }], "2026-10-27", "2026-10-29", "2026-10-29");
+    expect(s.map((d) => [d.date, d.count, d.isToday])).toEqual([
+      ["2026-10-27", 5, false], ["2026-10-28", 0, false], ["2026-10-29", 2, true],
+    ]);
+  });
+  it("without bounds spans the data", () => {
+    expect(dailySeries([{ date: "2026-10-01", count: 1 }, { date: "2026-10-03", count: 1 }]).length).toBe(3);
+  });
+});
+
+describe("footfallSeries", () => {
+  it("averages per day and lines up the comparison by hour", () => {
+    const s = footfallSeries({ hours: [{ hour: "10", count: 20 }, { hour: "12", count: 40 }], days: 2 },
+      { hours: [{ hour: "11", count: 7 }], days: 1 });
+    expect(s).toEqual([
+      { hour: "10", current: 10, compare: 0 },
+      { hour: "11", current: 0, compare: 7 },
+      { hour: "12", current: 20, compare: 0 },
+    ]);
+  });
+  it("is empty without data", () => {
+    expect(footfallSeries({ hours: [], days: 0 })).toEqual([]);
+  });
+});
+
+describe("weeklyMatrix", () => {
+  it("orders Monday first and finds the peaks", () => {
+    const m = weeklyMatrix([{ dow: 6, hour: "12", avg: 15 }, { dow: 1, hour: "09", avg: 3 }, { dow: 0, hour: "12", avg: 8 }], 2);
+    expect(m.rows.map((r) => r.day)).toEqual(["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]);
+    expect(m.hours).toEqual(["09", "12"]);
+    expect(m.rows[5].values).toEqual([0, 15]);
+    expect(m.max).toBe(15);
+    expect(m.peaks).toEqual([{ day: "Sat", hour: "12", avg: 15 }, { day: "Sun", hour: "12", avg: 8 }]);
+  });
+});
+
+describe("emotionShares", () => {
+  it("sorts largest first with percentages", () => {
+    expect(emotionShares({ Sad: 1, Happy: 3 })).toEqual([
+      { name: "Happy", value: 3, pct: 75 }, { name: "Sad", value: 1, pct: 25 },
+    ]);
   });
 });

@@ -71,7 +71,7 @@ const authLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 50, standardHeade
 
 // Live dashboards refetch when a reading arrives and busy cameras ingest often,
 // so those two paths get roomier budgets than the general API.
-const dashboardLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 1500, standardHeaders: true, legacyHeaders: false });
+const dashboardLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 6000, standardHeaders: true, legacyHeaders: false });
 const ingestLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 3000, standardHeaders: true, legacyHeaders: false });
 
 app.use('/api', (req, res, next) => {

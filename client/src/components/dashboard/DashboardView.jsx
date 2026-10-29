@@ -1,10 +1,7 @@
-import {
-  ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
-  PieChart, Pie, Cell, AreaChart, Area, Legend,
-} from "recharts";
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip } from "recharts";
 import { useState } from "react";
 import {
-  FiUsers, FiUserCheck, FiPieChart, FiTrendingUp, FiArrowUp, FiArrowDown,
+  FiUsers, FiUserCheck, FiPieChart, FiTrendingUp,
   FiClock, FiSmile, FiZap, FiAlertTriangle, FiCpu,
 } from "react-icons/fi";
 import { Card } from "../ui/card";
@@ -12,7 +9,9 @@ import { Button } from "../ui/button";
 import { useAuth } from "../../store/auth";
 import { api } from "../../api";
 import { emotionColor, GENDER_COLORS, axisProps } from "./theme";
-import { pctDelta, positivityIndex, hourTotals, buildInsights, detectAnomalies } from "../../lib/format";
+import { ChartCard, CustomTooltip, Delta, num } from "./chartParts";
+import { FootfallChart, DailyTrendChart, BusyTimesHeatmap, MoodCard } from "./charts";
+import { pctDelta, positivityIndex, hourTotals, buildInsights, detectAnomalies, emotionShares } from "../../lib/format";
 
 const AiSummaryCard = ({ summary }) => {
   const { isOffline } = useAuth();
@@ -56,34 +55,6 @@ const AiSummaryCard = ({ summary }) => {
   );
 };
 
-const num = (n) => (n ?? 0).toLocaleString();
-
-const CustomTooltip = ({ active, payload, label }) => {
-  if (!active || !payload?.length) return null;
-  return (
-    <div className="rounded-xl border border-border bg-card/95 px-3 py-2 text-xs shadow-lift backdrop-blur">
-      {label != null && <div className="mb-1 font-medium text-foreground">{label}</div>}
-      {payload.map((p) => (
-        <div key={p.name} className="flex items-center gap-2 text-muted-foreground">
-          <span className="h-2 w-2 rounded-full" style={{ background: p.color || p.payload?.fill }} />
-          <span className="capitalize">{p.name}</span>
-          <span className="ml-auto font-mono text-foreground">{num(p.value)}</span>
-        </div>
-      ))}
-    </div>
-  );
-};
-
-const Delta = ({ value, unit = "%" }) => {
-  if (value == null) return null;
-  const up = value >= 0;
-  return (
-    <span className={`inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-xs font-medium ${up ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" : "bg-red-500/10 text-red-600 dark:text-red-400"}`}>
-      {up ? <FiArrowUp size={11} /> : <FiArrowDown size={11} />}{Math.abs(value)}{unit}
-    </span>
-  );
-};
-
 const StatCard = ({ icon: Icon, label, value, sub, delta }) => (
   <Card className="p-5">
     <div className="flex items-center justify-between">
@@ -111,15 +82,10 @@ const HighlightTile = ({ icon: Icon, label, value, delta }) => (
   </Card>
 );
 
-const ChartCard = ({ title, description, children, className = "" }) => (
-  <Card className={`p-6 ${className}`}>
-    <h3 className="text-base font-semibold">{title}</h3>
-    {description && <p className="mt-1 text-sm text-muted-foreground">{description}</p>}
-    <div className="mt-5">{children}</div>
-  </Card>
-);
-
-export const DashboardView = ({ summary, prevSummary, recent = [] }) => {
+// `trends` (optional) carries the data for the hourly, daily and weekly charts:
+//   { footfall: {data, title, description, currentLabel, compareLabel},
+//     daily: {data, description}, weekly: matrix | null }
+export const DashboardView = ({ summary, prevSummary, recent = [], trends }) => {
   const { total = 0, gender = {}, genderAge = [], emotion = {}, gi = {}, byHour = [], ageEmotionMatrix = [] } = summary;
 
   const female = gender.Female || 0, male = gender.Male || 0;
@@ -137,21 +103,7 @@ export const DashboardView = ({ summary, prevSummary, recent = [] }) => {
   const insights = buildInsights(summary, prevSummary);
   const anomalies = detectAnomalies(byHour);
 
-  const emotionData = Object.entries(emotion).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
-  const giData = [
-    { name: "Individuals", value: gi.individual || 0 },
-    { name: "Groups", value: gi.group || 0 },
-  ];
-  const hourEmotions = Array.from(new Set(byHour.flatMap((h) => Object.keys(h).filter((k) => k !== "hour"))));
-
-  const ages = Array.from(new Set(ageEmotionMatrix.map((d) => d.age)));
-  const emotionsInMatrix = ["Happy", "Neutral", "Surprise", "Sad", "Fear", "Angry", "Disgust"];
-  const matrixLookup = {};
-  let matrixMax = 0;
-  for (const d of ageEmotionMatrix) {
-    matrixLookup[`${d.age}|${d.emotion}`] = d.count;
-    if (d.count > matrixMax) matrixMax = d.count;
-  }
+  const shares = emotionShares(emotion);
 
   return (
     <div className="grid gap-6 xl:grid-cols-[300px_minmax(0,1fr)_280px]">
@@ -214,10 +166,14 @@ export const DashboardView = ({ summary, prevSummary, recent = [] }) => {
         </ChartCard>
       </div>
 
-      {/* Row: gender by age + emotion donut */}
+      {/* Footfall by hour: the staffing question */}
+      {trends?.footfall && <FootfallChart {...trends.footfall} />}
+
+      {/* Daily trend + who is visiting */}
       <div className="grid gap-6 lg:grid-cols-[1.4fr_1fr]">
+        {trends?.daily && <DailyTrendChart {...trends.daily} />}
         <ChartCard title="Visitors by age & gender" description="Distribution of visitors across age groups, split by gender.">
-          <ResponsiveContainer width="100%" height={320}>
+          <ResponsiveContainer width="100%" height={280}>
             <BarChart data={genderAge} margin={{ top: 8, right: 8, left: -16, bottom: 0 }} barGap={4}>
               <CartesianGrid vertical={false} stroke="hsl(var(--border))" strokeDasharray="3 3" />
               <XAxis dataKey="age" {...axisProps} />
@@ -228,75 +184,13 @@ export const DashboardView = ({ summary, prevSummary, recent = [] }) => {
             </BarChart>
           </ResponsiveContainer>
         </ChartCard>
-
-        <ChartCard title="Emotion mix" description="Share of each detected emotion.">
-          <ResponsiveContainer width="100%" height={320}>
-            <PieChart>
-              <Pie data={emotionData} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={62} outerRadius={100} paddingAngle={2} stroke="none">
-                {emotionData.map((e) => <Cell key={e.name} fill={emotionColor(e.name)} />)}
-              </Pie>
-              <Tooltip content={<CustomTooltip />} />
-              <Legend iconType="circle" wrapperStyle={{ fontSize: 12 }} />
-            </PieChart>
-          </ResponsiveContainer>
-        </ChartCard>
       </div>
 
-      {/* Row: emotions over time + groups donut */}
-      <div className="grid gap-6 lg:grid-cols-[1.4fr_1fr]">
-        <ChartCard title="Emotions over time" description="How mood shifts across the hours of the day.">
-          <ResponsiveContainer width="100%" height={300}>
-            <AreaChart data={byHour} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
-              <defs>
-                {hourEmotions.map((e) => (
-                  <linearGradient key={e} id={`grad-${e}`} x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor={emotionColor(e)} stopOpacity={0.35} />
-                    <stop offset="100%" stopColor={emotionColor(e)} stopOpacity={0} />
-                  </linearGradient>
-                ))}
-              </defs>
-              <CartesianGrid vertical={false} stroke="hsl(var(--border))" strokeDasharray="3 3" />
-              <XAxis dataKey="hour" {...axisProps} tickFormatter={(h) => `${h}:00`} />
-              <YAxis {...axisProps} />
-              <Tooltip content={<CustomTooltip />} />
-              <Legend iconType="circle" wrapperStyle={{ fontSize: 12 }} />
-              {hourEmotions.map((e) => (
-                <Area key={e} type="monotone" dataKey={e} stroke={emotionColor(e)} strokeWidth={2} fill={`url(#grad-${e})`} />
-              ))}
-            </AreaChart>
-          </ResponsiveContainer>
-        </ChartCard>
+      {/* Mood: overall / by age / by hour */}
+      <MoodCard shares={shares} moodIndex={pos} moodDelta={posDelta} ageEmotionMatrix={ageEmotionMatrix} byHour={byHour} />
 
-        <ChartCard title="Individuals vs. groups" description="Are visitors arriving solo or together?">
-          <ResponsiveContainer width="100%" height={300}>
-            <PieChart>
-              <Pie data={giData} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={62} outerRadius={100} paddingAngle={2} stroke="none">
-                <Cell fill="hsl(var(--primary))" />
-                <Cell fill="hsl(var(--chart-2))" />
-              </Pie>
-              <Tooltip content={<CustomTooltip />} />
-              <Legend iconType="circle" wrapperStyle={{ fontSize: 12 }} />
-            </PieChart>
-          </ResponsiveContainer>
-        </ChartCard>
-      </div>
-
-      {/* Age x Emotion heatmap */}
-      <ChartCard title="Age × emotion" description="Where emotion concentrates across age groups — darker means more.">
-        <div className="overflow-x-auto">
-          <div className="min-w-[560px] max-w-[760px]">
-            <div className="grid" style={{ gridTemplateColumns: `90px repeat(${emotionsInMatrix.length}, 1fr)` }}>
-              <div />
-              {emotionsInMatrix.map((e) => (
-                <div key={e} className="px-1 pb-2 text-center text-xs font-medium text-muted-foreground">{e}</div>
-              ))}
-              {ages.map((age) => (
-                <Row key={age} age={age} emotions={emotionsInMatrix} lookup={matrixLookup} max={matrixMax} />
-              ))}
-            </div>
-          </div>
-        </div>
-      </ChartCard>
+      {/* Weekly pattern (needs more than one day) */}
+      {trends?.weekly && <BusyTimesHeatmap matrix={trends.weekly} />}
       </div>
 
       {/* Right: highlight tiles (sticky on scroll) */}
@@ -308,27 +202,3 @@ export const DashboardView = ({ summary, prevSummary, recent = [] }) => {
     </div>
   );
 };
-
-const Row = ({ age, emotions, lookup, max }) => (
-  <>
-    <div className="flex items-center pr-3 font-mono text-xs text-muted-foreground">{age}</div>
-    {emotions.map((e) => {
-      const v = lookup[`${age}|${e}`] || 0;
-      const intensity = max ? v / max : 0;
-      return (
-        <div key={e} className="p-1">
-          <div
-            className="grid aspect-square place-items-center rounded-md text-xs font-medium transition-colors"
-            style={{
-              background: `hsl(var(--primary) / ${0.08 + intensity * 0.85})`,
-              color: intensity > 0.55 ? "hsl(var(--primary-foreground))" : "hsl(var(--muted-foreground))",
-            }}
-            title={`${age} · ${e}: ${v}`}
-          >
-            {v || ""}
-          </div>
-        </div>
-      );
-    })}
-  </>
-);

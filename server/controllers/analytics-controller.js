@@ -138,4 +138,74 @@ const getSummary = async (req, res) => {
     }
 };
 
-module.exports = { getData, getRecent, getDates, getSummary, buildFilter };
+// GET /api/analytics/hourly — visitors per hour of day (local time), plus how
+// many distinct days that covers, so the chart can show an average per day.
+const getHourly = async (req, res) => {
+    try {
+        const match = buildFilter(req.query);
+        const [hours, dates] = await Promise.all([
+            Client1.aggregate([
+                { $match: match },
+                { $group: { _id: { $substrCP: ["$Time", 0, 2] }, count: { $sum: 1 } } },
+                { $sort: { _id: 1 } },
+            ]),
+            Client1.distinct("Date", match),
+        ]);
+        res.json({
+            hours: hours.filter((h) => h._id).map(({ _id, count }) => ({ hour: _id, count })),
+            days: dates.filter(Boolean).length,
+        });
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+};
+
+// GET /api/analytics/daily — visitors per calendar day.
+const getDaily = async (req, res) => {
+    try {
+        const rows = await Client1.aggregate([
+            { $match: buildFilter(req.query) },
+            { $group: { _id: "$Date", count: { $sum: 1 } } },
+            { $sort: { _id: 1 } },
+        ]);
+        res.json(rows.filter((r) => r._id).map(({ _id, count }) => ({ date: _id, count })));
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+};
+
+// Reduce per-(date, hour) counts into an average-visitors grid by weekday x hour.
+// Averages divide by the number of that weekday's dates that had any visitors,
+// so days the place was closed don't drag the average down.
+function weeklyGrid(rows) {
+    const totals = {};                 // "dow|hour" -> visitors
+    const datesByDow = {};             // dow -> Set of dates
+    for (const { date, hour, count } of rows) {
+        if (!date || !hour) continue;
+        const dow = new Date(`${date}T00:00:00Z`).getUTCDay();   // 0 = Sunday
+        if (Number.isNaN(dow)) continue;
+        totals[`${dow}|${hour}`] = (totals[`${dow}|${hour}`] || 0) + count;
+        (datesByDow[dow] = datesByDow[dow] || new Set()).add(date);
+    }
+    const cells = Object.entries(totals).map(([key, total]) => {
+        const [dow, hour] = key.split("|");
+        return { dow: Number(dow), hour, avg: Math.round((total / datesByDow[dow].size) * 10) / 10 };
+    });
+    const days = Object.fromEntries(Object.entries(datesByDow).map(([dow, set]) => [dow, set.size]));
+    return { cells, days };
+}
+
+// GET /api/analytics/weekly — average visitors by weekday x hour ("busy times").
+const getWeekly = async (req, res) => {
+    try {
+        const rows = await Client1.aggregate([
+            { $match: buildFilter(req.query) },
+            { $group: { _id: { date: "$Date", hour: { $substrCP: ["$Time", 0, 2] } }, count: { $sum: 1 } } },
+        ]);
+        res.json(weeklyGrid(rows.map(({ _id, count }) => ({ date: _id.date, hour: _id.hour, count }))));
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+};
+
+module.exports = { getData, getRecent, getDates, getSummary, getHourly, getDaily, getWeekly, buildFilter, weeklyGrid };

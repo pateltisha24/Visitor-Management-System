@@ -1,6 +1,11 @@
 // ---- Date range helpers ----
-const fmt = (d) => d.toISOString().slice(0, 10);
-const addDays = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); return x; };
+// Dates are local calendar days ("YYYY-MM-DD"), matching how the CV pipeline
+// writes each reading's Date. (toISOString() would give the UTC day, which in
+// the evening west of UTC is already tomorrow.)
+const pad2 = (n) => String(n).padStart(2, "0");
+export const fmt = (d) => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+export const parseDate = (s) => { const [y, m, d] = s.split("-").map(Number); return new Date(y, m - 1, d); };
+export const addDays = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); return x; };
 
 export const RANGE_PRESETS = [
   { key: "today", label: "Today" },
@@ -20,7 +25,7 @@ export function presetRange(preset) {
 // Equal-length window immediately before [from, to].
 export function previousRange(from, to) {
   if (!from || !to) return null;
-  const start = new Date(from), end = new Date(to);
+  const start = parseDate(from), end = parseDate(to);
   const len = Math.round((end - start) / 86400000) + 1;
   const prevTo = addDays(start, -1);
   const prevFrom = addDays(prevTo, -(len - 1));
@@ -143,4 +148,70 @@ export function buildInsights(summary, prevSummary) {
     out.push(`${groupPct}% arrived in groups, the rest solo.`);
   }
   return out;
+}
+
+// ---- Chart data shaping ----
+const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+// Range for the daily-trend chart: a single day gets the last 14 days for context.
+export function trendRange(preset, now = new Date()) {
+  if (preset === "today") return { from: fmt(addDays(now, -13)), to: fmt(now) };
+  return presetRange(preset);
+}
+
+// [{date, count}] -> one point per calendar day in [from, to] (gaps become 0).
+// Without bounds (all time), spans the first to last day that has data.
+export function dailySeries(rows = [], from, to, today = fmt(new Date())) {
+  const counts = Object.fromEntries(rows.map((r) => [r.date, r.count]));
+  const dates = rows.map((r) => r.date).sort();
+  const start = from || dates[0], end = to || dates[dates.length - 1];
+  if (!start || !end) return [];
+  const out = [];
+  for (let d = parseDate(start); fmt(d) <= end; d = addDays(d, 1)) {
+    const date = fmt(d);
+    out.push({
+      date,
+      label: d.toLocaleDateString(undefined, { month: "short", day: "numeric" }),
+      count: counts[date] || 0,
+      isToday: date === today,
+    });
+  }
+  return out;
+}
+
+// Visitors per hour as an average per day, against a comparison period.
+// Only the hours that have data in either series (and those in between).
+export function footfallSeries(current = { hours: [], days: 0 }, compare = null) {
+  const per = (series) => Object.fromEntries((series?.hours || []).map((h) => [h.hour, h.count / Math.max(1, series.days)]));
+  const cur = per(current), cmp = compare ? per(compare) : {};
+  const hours = [...new Set([...Object.keys(cur), ...Object.keys(cmp)])].map(Number).sort((a, b) => a - b);
+  if (!hours.length) return [];
+  const round = (v) => (v == null ? null : Math.round(v * 10) / 10);
+  const out = [];
+  for (let h = hours[0]; h <= hours[hours.length - 1]; h++) {
+    const key = pad2(h);
+    out.push({ hour: key, current: round(cur[key] ?? 0), compare: compare ? round(cmp[key] ?? 0) : null });
+  }
+  return out;
+}
+
+// {cells: [{dow, hour, avg}]} -> rows Mon..Sun x the hours that ever have data,
+// plus the max (for colour scaling) and the top few busiest slots.
+export function weeklyMatrix(cells = [], topN = 3) {
+  const hours = [...new Set(cells.map((c) => c.hour))].sort();
+  const lookup = Object.fromEntries(cells.map((c) => [`${c.dow}|${c.hour}`, c.avg]));
+  const order = [1, 2, 3, 4, 5, 6, 0];   // Monday first
+  const rows = order.map((dow) => ({ dow, day: WEEKDAYS[dow], values: hours.map((h) => lookup[`${dow}|${h}`] || 0) }));
+  const max = cells.reduce((m, c) => Math.max(m, c.avg), 0);
+  const peaks = [...cells].sort((a, b) => b.avg - a.avg).slice(0, topN)
+    .map((c) => ({ day: WEEKDAYS[c.dow], hour: c.hour, avg: c.avg }));
+  return { hours, rows, max, peaks };
+}
+
+// {Happy: 12, ...} -> [{name, value, pct}] sorted largest first.
+export function emotionShares(emotion = {}) {
+  const total = Object.values(emotion).reduce((a, b) => a + b, 0);
+  return Object.entries(emotion)
+    .map(([name, value]) => ({ name, value, pct: total ? Math.round((value / total) * 100) : 0 }))
+    .sort((a, b) => b.value - a.value);
 }

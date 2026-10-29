@@ -77,7 +77,7 @@ function generate(now = new Date()) {
     const anomalyHour = 15;
 
     for (let h = OPEN_HOUR; h <= CLOSE_HOUR; h++) {
-      if (isToday && h > Math.max(todayHour, OPEN_HOUR + 1)) break; // don't seed the future
+      if (isToday && h > todayHour) break; // don't seed the future
       const isAnomaly = isToday && h === anomalyHour;
       let count = Math.round(dailyBase * (HOUR_WEIGHT[h] || 0.6) * (0.8 + Math.random() * 0.4));
       if (isAnomaly) count = Math.round(count * 3) + 18;

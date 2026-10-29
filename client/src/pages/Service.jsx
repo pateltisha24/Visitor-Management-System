@@ -10,13 +10,16 @@ import { sampleSummary, samplePrevSummary, sampleRecent } from "../components/da
 import { Button } from "../components/ui/button";
 import { Card } from "../components/ui/card";
 import { cn } from "../lib/utils";
-import { RANGE_PRESETS, presetRange, previousRange, downloadCSV } from "../lib/format";
+import {
+  RANGE_PRESETS, presetRange, previousRange, downloadCSV, fmt, addDays, parseDate,
+  trendRange, dailySeries, footfallSeries, weeklyMatrix,
+} from "../lib/format";
 
 const POLL_MS = 10000;
 // With the realtime connection up, polling is only a safety net.
 const POLL_MS_REALTIME = 30000;
 // Coalesce bursts of new readings into at most one refetch per this window.
-const REFRESH_THROTTLE_MS = 1500;
+const REFRESH_THROTTLE_MS = 2500;
 const MAX_ACTIVITY = 30;
 const SINCE_KEY = "facesense.since";
 
@@ -32,6 +35,7 @@ export const Service = () => {
   const [summary, setSummary] = useState(null);
   const [prev, setPrev] = useState(null);
   const [recent, setRecent] = useState([]);
+  const [trends, setTrends] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [live, setLive] = useState(true);
@@ -72,7 +76,7 @@ export const Service = () => {
     const myId = ++reqId.current;
     // Offline fallback (API unreachable): use bundled static sample data.
     if (isOffline) {
-      setSummary(sampleSummary); setPrev(samplePrevSummary); setRecent(sampleRecent);
+      setSummary(sampleSummary); setPrev(samplePrevSummary); setRecent(sampleRecent); setTrends(null);
       setLoading(false); setError(false); setLastUpdated(new Date());
       return;
     }
@@ -80,16 +84,48 @@ export const Service = () => {
     try {
       const range = presetRange(preset);
       // A fresh session has no meaningful "previous period" to compare against.
-      const prevR = since && !sample ? null : previousRange(range.from, range.to);
-      const [sumRes, recentRes, prevRes] = await Promise.all([
-        api.get(`/api/analytics/summary${queryString(range)}`),
-        api.get(`/api/analytics/recent${queryString(range, { limit: 10 })}`),
-        prevR ? api.get(`/api/analytics/summary${queryString(prevR)}`) : Promise.resolve(null),
+      const fresh = since && !sample;
+      const prevR = fresh ? null : previousRange(range.from, range.to);
+      // Footfall by hour compares today with the same weekday last week (a fairer
+      // baseline than yesterday); longer ranges compare with the previous period.
+      const lastWeek = preset === "today" ? fmt(addDays(parseDate(range.from), -7)) : null;
+      const footR = fresh ? null : lastWeek ? { from: lastWeek, to: lastWeek } : prevR;
+      const trendR = trendRange(preset);
+      // Averages (footfall by hour, busy times) use complete days only: today is
+      // still in progress, so counting it as a full day would drag them down.
+      const multiDay = preset !== "today";
+      const completeR = multiDay && !fresh ? { from: range.from, to: fmt(addDays(new Date(), -1)) } : range;
+      const get = (path, r, extra) => api.get(`/api/analytics/${path}${queryString(r, extra)}`).then((res) => res.data);
+      const [sum, recentRows, prevSum, hourly, hourlyCmp, daily, weekly] = await Promise.all([
+        get("summary", range),
+        get("recent", range, { limit: 10 }),
+        prevR ? get("summary", prevR) : null,
+        get("hourly", completeR),
+        footR ? get("hourly", footR) : null,
+        get("daily", trendR),
+        multiDay ? get("weekly", completeR) : null,   // a single day can't show a weekly pattern
       ]);
       if (myId !== reqId.current) return; // a newer request superseded this one
-      setSummary(sumRes.data);
-      setRecent(recentRes.data || []);
-      setPrev(prevRes ? prevRes.data : null);
+      setSummary(sum);
+      setRecent(recentRows || []);
+      setPrev(prevSum);
+      const weekday = parseDate(range.from || fmt(new Date())).toLocaleDateString(undefined, { weekday: "long" });
+      setTrends({
+        footfall: {
+          data: footfallSeries(hourly, hourlyCmp),
+          title: "Footfall by hour",
+          description: multiDay
+            ? "Average visitors per hour on the complete days of this period, against the previous period."
+            : footR ? `Visitors per hour today, against last ${weekday}.` : "Visitors per hour today.",
+          currentLabel: multiDay ? "This period, avg per day" : "Today",
+          compareLabel: footR ? (multiDay ? "Previous period" : `Last ${weekday}`) : null,
+        },
+        daily: {
+          data: dailySeries(daily, trendR.from, trendR.to),
+          description: preset === "today" ? "The last 14 days; today is highlighted." : "Visitors per day in this period.",
+        },
+        weekly: weekly ? weeklyMatrix(weekly.cells) : null,
+      });
       setError(false); setLastUpdated(new Date());
     } catch {
       if (myId === reqId.current) setError(true);
@@ -236,7 +272,7 @@ export const Service = () => {
           {loading ? (
             <SkeletonGrid />
           ) : hasData ? (
-            <DashboardView summary={summary} prevSummary={prev} recent={recent} />
+            <DashboardView summary={summary} prevSummary={prev} recent={recent} trends={trends} />
           ) : (
             <EmptyState error={error} fresh={!!since && !sample} onSample={() => setSample(true)} />
           )}
