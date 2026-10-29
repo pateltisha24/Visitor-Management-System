@@ -2,7 +2,7 @@ import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Toolti
 import { useState, useEffect, useRef } from "react";
 import {
   FiUsers, FiRepeat, FiPieChart, FiTrendingUp,
-  FiClock, FiSmile, FiAlertTriangle, FiCpu,
+  FiClock, FiSmile, FiAlertTriangle, FiSend,
 } from "react-icons/fi";
 import { Card } from "../ui/card";
 import { Button } from "../ui/button";
@@ -12,13 +12,14 @@ import { emotionColor, GENDER_COLORS, axisProps } from "./theme";
 import { ChartCard, ChartBox, CustomTooltip, Delta, num } from "./chartParts";
 import { TrafficCard, MoodCard, Tabs } from "./charts";
 import { cn } from "../../lib/utils";
-import { pctDelta, positivityIndex, hourTotals, buildInsights, emotionShares, hourSpan, ageLabel } from "../../lib/format";
+import { positivityIndex, hourTotals, buildInsights, emotionShares, hourSpan, ageLabel, fmt } from "../../lib/format";
 
-// The written read of the view: plain-language takeaways, plus an on-demand AI
-// summary. Both stay mounted, so a generated summary survives switching tabs.
-const SUMMARY_TABS = [{ key: "takeaways", label: "Takeaways" }, { key: "ai", label: "AI summary" }];
+// The written read of the view: instant plain-language takeaways, and Ask, where
+// the AI answers a question from the numbers on this page. Both stay mounted, so
+// an answer survives switching tabs.
+const SUMMARY_TABS = [{ key: "takeaways", label: "Takeaways" }, { key: "ask", label: "Ask" }];
 
-const SummaryCard = ({ summary, insights }) => {
+const SummaryCard = ({ insights, askContext }) => {
   const [tab, setTab] = useState("takeaways");
   return (
     <ChartCard title="Summary" action={<Tabs tabs={SUMMARY_TABS} value={tab} onChange={setTab} />}>
@@ -30,45 +31,101 @@ const SummaryCard = ({ summary, insights }) => {
           </li>
         )) : <li className="text-sm text-muted-foreground">Not enough data for insights yet.</li>}
       </ul>
-      <AiSummary summary={summary} className={tab !== "ai" ? "hidden" : ""} />
+      <AskPanel askContext={askContext} className={tab !== "ask" ? "hidden" : ""} />
     </ChartCard>
   );
 };
 
-const AiSummary = ({ summary, className = "" }) => {
-  const { isOffline } = useAuth();
-  const [loading, setLoading] = useState(false);
-  const [text, setText] = useState("");
-  const [err, setErr] = useState("");
+const SUGGESTED_QUESTIONS = [
+  "When do I need extra staff?",
+  "How is today going compared with last week?",
+  "Which day of the week is busiest?",
+  "Are visitor numbers growing month to month?",
+];
 
-  const generate = async () => {
-    setLoading(true); setErr("");
+// The numbers this page is showing, in the shape /api/ai/ask expects.
+const askPayload = ({ summary, prevSummary, trends, change }) => {
+  const now = new Date();
+  return {
+    summary,
+    previous: prevSummary || null,
+    change: change ?? null,
+    daily: trends?.daily.data.map(({ date, count, isToday }) => ({ date, count, isToday })),
+    monthly: trends?.monthly.data.map(({ month, count, days, isCurrent }) => ({ month, count, days, isCurrent })),
+    hourly: trends?.footfall.data.map(({ hour, current, compare }) => ({ hour, current, compare })),
+    weekly: trends ? { hours: trends.weekly.matrix.hours, rows: trends.weekly.matrix.rows.map(({ day, values }) => ({ day, values })) } : null,
+    now: {
+      date: fmt(now),
+      weekday: now.toLocaleDateString("en-GB", { weekday: "long" }),
+      time: now.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }),
+    },
+  };
+};
+
+const AskPanel = ({ askContext, className = "" }) => {
+  const { isOffline } = useAuth();
+  const [question, setQuestion] = useState("");
+  const [asked, setAsked] = useState("");
+  const [answer, setAnswer] = useState("");
+  const [err, setErr] = useState("");
+  const [inputErr, setInputErr] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const ask = async (text) => {
+    const q = text.trim();
+    if (q.length < 3) { setInputErr("Type a question first."); return; }
+    setAsked(q); setAnswer(""); setErr(""); setInputErr(""); setQuestion(""); setLoading(true);
     try {
-      const res = await api.post("/api/ai/insights", { summary });
-      setText(res.data.insight);
+      const res = await api.post("/api/ai/ask", { question: q, ...askPayload(askContext) });
+      setAnswer(res.data.answer);
     } catch (e) {
-      setErr(e.response?.data?.message || "Couldn't generate a summary.");
+      setErr(e.response?.data?.extraDetails || e.response?.data?.message || "Couldn't get an answer. Try again.");
     } finally {
       setLoading(false);
     }
   };
 
+  const suggestions = (
+    <div className="mt-2 flex flex-wrap gap-1.5">
+      {SUGGESTED_QUESTIONS.filter((s) => s !== asked).map((s) => (
+        <button key={s} onClick={() => ask(s)} disabled={loading || isOffline}
+                className="rounded-full border border-border px-2.5 py-1 text-xs text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground disabled:opacity-50">
+          {s}
+        </button>
+      ))}
+    </div>
+  );
+
   return (
     <div className={cn("flex min-h-0 flex-1 flex-col", className)}>
       <div className="min-h-0 flex-1 overflow-y-auto pr-1 text-sm leading-relaxed">
         {isOffline ? (
-          <p className="text-muted-foreground">Connect to the server to generate AI summaries.</p>
-        ) : err ? (
-          <p className="text-muted-foreground">{err}</p>
-        ) : text ? (
-          <p className="whitespace-pre-wrap text-foreground/90">{text}</p>
+          <p className="text-muted-foreground">Connect to the server to ask questions.</p>
+        ) : asked ? (
+          <>
+            <p className="font-medium">{asked}</p>
+            {loading ? <p className="mt-1 animate-pulse text-muted-foreground">Thinking…</p>
+              : err ? <p className="mt-1 text-muted-foreground">{err}</p>
+              : <p className="mt-1 whitespace-pre-wrap text-foreground/90">{answer}</p>}
+            {!loading && suggestions}
+          </>
         ) : (
-          <p className="text-muted-foreground">Click <span className="font-medium">Generate</span> for a written summary of this view (Groq by default, or your own provider).</p>
+          <>
+            <p className="text-muted-foreground">Ask anything about your visitors, or try one of these:</p>
+            {suggestions}
+          </>
         )}
       </div>
-      <Button size="sm" className="mt-3 self-start" onClick={generate} disabled={loading || isOffline}>
-        <FiCpu /> {loading ? "Generating…" : text ? "Generate again" : "Generate"}
-      </Button>
+      <form className="mt-2" onSubmit={(e) => { e.preventDefault(); ask(question); }}>
+        <div className="flex gap-2">
+          <input value={question} maxLength={300} disabled={isOffline} aria-label="Your question"
+                 onChange={(e) => { setQuestion(e.target.value); setInputErr(""); }}
+                 placeholder="When should I have two people on the till?"
+                 className="h-9 min-w-0 flex-1 rounded-full border border-input bg-background/60 px-4 text-sm placeholder:text-muted-foreground/70 focus-visible:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30" />
+          <Button type="submit" size="sm" disabled={loading || isOffline}><FiSend /> Ask</Button>
+        </div>
+        {inputErr && <p className="mt-1 px-4 text-xs text-red-600 dark:text-red-400">{inputErr}</p>}
+      </form>
     </div>
   );
 };
@@ -135,8 +192,8 @@ export const DashboardView = ({ summary, prevSummary, recent = [], trends, conte
   const topAge = (summary.age || []).reduce((a, b) => (b.count > (a?.count || 0) ? b : a), null);
 
   // Comparison + highlights.
-  // Like-for-like when available (a day in progress vs complete days would mislead).
-  const totalDelta = context.visitorChange ? context.visitorChange.pct : prevSummary ? pctDelta(total, prevSummary.total) : null;
+  // Like-for-like only: today so far against last week's whole day would mislead.
+  const totalDelta = context.visitorChange?.pct ?? null;
   const pos = positivityIndex(emotion);
   const posDelta = prevSummary ? pos - positivityIndex(prevSummary.emotion) : null;
   const hours = hourTotals(byHour);
@@ -164,7 +221,7 @@ export const DashboardView = ({ summary, prevSummary, recent = [], trends, conte
       {/* Traffic (the staffing question) + the written summary */}
       <div className="grid min-h-0 gap-4 xl:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
         {trends && <TrafficCard {...trends} />}
-        <SummaryCard summary={summary} insights={insights} />
+        <SummaryCard insights={insights} askContext={{ summary, prevSummary, trends, change: totalDelta }} />
       </div>
 
       {/* Who is visiting, how they seemed, and who just came in */}

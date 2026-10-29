@@ -168,8 +168,8 @@ test("AI facts: plain clock times and quietest *open* hour", () => {
         emotion: { Happy: 100, Neutral: 200 }, gi: { individual: 250, group: 50 },
         byHour: [{ hour: "00", Neutral: 2 }, { hour: "09", Neutral: 20 }, { hour: "12", Happy: 100 }, { hour: "15", Neutral: 60 }, { hour: "18", Neutral: 118 }],
     });
-    assert.strictEqual(facts.busiestTimes[0], "6 pm-7 pm (118 visitors)");
-    assert.strictEqual(facts.quietestOpenTime, "9 am-10 am (20 visitors)");   // not the 2 stray readings after midnight
+    assert.strictEqual(facts.busiestTimes[0], "6–7 pm (118 visitors)");
+    assert.strictEqual(facts.quietestOpenTime, "9–10 am (20 visitors)");   // not the 2 stray readings after midnight
     assert.strictEqual(facts.lookedHappyOrSurprised, "33%");
 });
 
@@ -181,4 +181,30 @@ test("sample data: six whole months, nothing in the future", () => {
     const months = new Set(docs.map((d) => d.Date.slice(0, 7)));
     assert.deepStrictEqual([...months].sort(), ["2026-05", "2026-06", "2026-07", "2026-08", "2026-09", "2026-10"]);
     assert.ok(docs.every((d) => d.Timestamp <= now));
+});
+
+test("Ask: questions are checked and the facts are worked out in advance", () => {
+    const { askSchema } = require("../validators/insights-validator");
+    const { askFacts } = require("../controllers/insights-controller");
+    const summary = { total: 40, byHour: [{ hour: "12", Happy: 30, Neutral: 10 }], age: [], gender: {}, emotion: { Happy: 30, Neutral: 10 } };
+    assert.strictEqual(askSchema.safeParse({ question: "hi", summary }).success, false);           // too short
+    assert.strictEqual(askSchema.safeParse({ question: "x".repeat(301), summary }).success, false);
+    assert.strictEqual(askSchema.safeParse({ question: "When is it busy?", summary }).success, true);
+
+    const facts = askFacts({
+        summary, change: -18,
+        daily: [{ date: "2026-10-29", count: 40, isToday: true }],
+        monthly: [{ month: "2026-09", count: 9000, days: 30 }, { month: "2026-10", count: 8000, isCurrent: true }],
+        hourly: [{ hour: "11", current: 0, compare: 0 }, { hour: "12", current: 40, compare: 52 }, { hour: "13", current: 3, compare: 48 }, { hour: "14", current: 0, compare: 45 }],
+        now: { date: "2026-10-29", weekday: "Thursday", time: "13:10" },
+        weekly: { hours: ["09", "12"], rows: [{ day: "Mon", values: [4, 20] }, { day: "Sat", values: [10, 50.4] }] },
+    });
+    assert.strictEqual(facts.todaySoFarVsSameTimeLastWeek, "-18%");
+    assert.deepStrictEqual(facts.visitorsPerDayLast30Days, ["Thu 29 Oct (today, so far): 40"]);
+    assert.deepStrictEqual(facts.visitorsPerMonth, ["Sep 2026: 9,000 over 30 days, about 300 a day", "Oct 2026 (so far): 8,000"]);
+    assert.deepStrictEqual(facts.todayByHourVsSameDayLastWeek, [                // 2 pm hasn't happened yet
+        "12–1 pm: 40 today, 52 last Thursday", "1–2 pm (in progress): 3 today, 48 last Thursday",
+    ]);
+    assert.deepStrictEqual(facts.typicalWeekLast4Weeks.averageVisitorsByWeekday, ["Mon: about 24", "Sat: about 60"]);
+    assert.strictEqual(facts.typicalWeekLast4Weeks.busiestTimesOfTheWeek[0], "Sat 12–1 pm (about 50)");
 });

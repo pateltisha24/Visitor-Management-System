@@ -38,7 +38,7 @@ Environment variables (Render sets `PORT` itself):
 | `MONGODB_URI` | your Atlas connection string. Atlas → Network Access must allow Render (e.g. `0.0.0.0/0`) |
 | `JWT_SECRET_KEY` | same value as in `server/.env`, so existing accounts keep working |
 | `INGEST_API_KEY` | same value as in `server/.env` (the pipeline on the Mac uses it too) |
-| `GROQ_API_KEY`, `AI_ENC_SECRET` | for the AI summary, as in `SETUP.md` |
+| `GROQ_API_KEY`, `AI_ENC_SECRET` | for the Ask tab, as in `SETUP.md` |
 | `DEMO_SEED_REFRESH` | `true` keeps the demo account's sample data relative to today |
 
 Render rebuilds automatically on every push to that branch.
@@ -151,7 +151,7 @@ only visitors from now on; nothing is deleted).
 3. Step out of frame for ~3 s, come back: Activity shows **Returning visitor, not double-counted**.
 4. Click the **Store entrance** chip: counts climb, charts fill. Use the **camera filter** to
    compare cameras.
-5. **AI summary → Generate.**
+5. **Summary → Ask → "When do I need extra staff?"**, then type a question of your own.
 6. Privacy slide, then what's next (Phases 2–3).
 
 ## 7. Fallbacks

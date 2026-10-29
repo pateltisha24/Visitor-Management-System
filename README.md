@@ -42,8 +42,8 @@ light editorial design system, dark-mode support, and a one-click **Live demo**.
 **period-over-period deltas** (▲/▼ vs the previous equal-length window).
 - **Highlight tiles** — peak hour, happiest hour, and a sentiment **mood index**.
 - **Auto-insights** — plain-English, rule-based takeaways from the current view.
-- **AI summary (BYOK)** — a natural-language read of the data via the **Vercel AI SDK**,
-defaulting to **Groq** (free tier) and supporting **OpenAI, Anthropic and OpenRouter**
+- **Ask (BYOK)** — ask a question about your visitors in plain words ("When do I need extra
+staff?") and get an answer from the dashboard's numbers, via the **Vercel AI SDK**, defaulting to **Groq** (free tier) and supporting **OpenAI, Anthropic and OpenRouter**
 with the user's own key.
 - **Anomaly flagging** — z-score / doubling detection on footfall and negative sentiment.
 - **Charts** — gender × age bar, emotion mix, individuals-vs-groups, emotions-over-time

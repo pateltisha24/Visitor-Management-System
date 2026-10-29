@@ -233,6 +233,7 @@ export function dailySeries(rows = [], from, to, today = fmt(new Date())) {
 // current month is marked since it's still in progress.
 export function monthlySeries(rows = [], n = 12, now = new Date()) {
   const counts = Object.fromEntries(rows.map((r) => [r.month, r.count]));
+  const days = Object.fromEntries(rows.map((r) => [r.month, r.days]));
   const months = [];
   for (let i = n - 1; i >= 0; i--) months.push(new Date(now.getFullYear(), now.getMonth() - i, 1));
   const first = months.findIndex((d) => counts[fmt(d).slice(0, 7)]);
@@ -245,6 +246,7 @@ export function monthlySeries(rows = [], n = 12, now = new Date()) {
       month,
       label: d.toLocaleDateString(undefined, withYear ? { month: "short", year: "numeric" } : { month: "short" }),
       count: counts[month] || 0,
+      days: days[month] || 0,
       isCurrent: i === shown.length - 1,
     };
   });

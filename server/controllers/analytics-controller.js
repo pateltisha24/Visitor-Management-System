@@ -188,15 +188,16 @@ const getDaily = async (req, res) => {
     }
 };
 
-// GET /api/analytics/monthly — visitors per calendar month ("YYYY-MM").
+// GET /api/analytics/monthly — visitors per calendar month ("YYYY-MM"), and on
+// how many days of it there were visitors (for a fair average per day).
 const getMonthly = async (req, res) => {
     try {
         const rows = await Client1.aggregate([
             { $match: buildFilter(req.query) },
-            { $group: { _id: { $substrCP: ["$Date", 0, 7] }, count: { $sum: 1 } } },
+            { $group: { _id: { $substrCP: ["$Date", 0, 7] }, count: { $sum: 1 }, dates: { $addToSet: "$Date" } } },
             { $sort: { _id: 1 } },
         ]);
-        res.json(rows.filter((r) => r._id).map(({ _id, count }) => ({ month: _id, count })));
+        res.json(rows.filter((r) => r._id).map(({ _id, count, dates }) => ({ month: _id, count, days: dates.length })));
     } catch (err) {
         res.status(500).json({ message: err.message });
     }

@@ -1,6 +1,6 @@
 /**
  * Seed realistic visitor analytics into MongoDB so the dashboard's features
- * (date ranges, filters, recent feed, period comparison, anomalies, AI summary)
+ * (traffic by hour/day/month, busy times, filters, recent feed, comparisons, anomalies, Ask)
  * all work against real data — plus a demo account the "Live demo" logs into.
  *
  *   node scripts/seed.js            # replace the sample readings (real readings are kept)

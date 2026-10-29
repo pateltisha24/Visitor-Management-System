@@ -4,7 +4,7 @@ Two things need accounts/keys created outside the codebase. This is the checklis
 
 ## A. Groq key (default AI provider — free tier)
 
-The dashboard's "AI summary" uses the Vercel AI SDK with **BYOK** (bring your own key).
+The dashboard's "Ask" tab uses the Vercel AI SDK with **BYOK** (bring your own key).
 Groq is the zero-cost default.
 
 1. Go to **https://console.groq.com** and sign in.
