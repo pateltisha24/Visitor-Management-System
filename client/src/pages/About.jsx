@@ -4,6 +4,7 @@ import { FiArrowUpRight, FiShoppingBag, FiCalendar, FiCoffee, FiBook, FiCpu, FiH
 import { Button } from "../components/ui/button";
 import { Badge } from "../components/ui/badge";
 import { Card } from "../components/ui/card";
+import { DemoButton } from "../components/DemoButton";
 
 const useCases = [
   { icon: FiShoppingBag, title: "Retail", body: "Read customer demographics and mood in real time to sharpen merchandising, layout and staffing." },
@@ -90,7 +91,7 @@ export const About = () => {
             <h2 className="text-balance font-display text-4xl font-bold tracking-tight sm:text-5xl">Ready to see it live?</h2>
             <p className="mt-4 text-lg text-background/70">Explore the dashboard or talk to the team about your deployment.</p>
             <div className="mt-8 flex flex-wrap gap-3">
-              <Button asChild size="lg" className="bg-primary text-primary-foreground"><NavLink to="/service">Open dashboard <FiArrowUpRight /></NavLink></Button>
+              <DemoButton size="lg" className="bg-primary text-primary-foreground">Explore the live demo <FiArrowUpRight /></DemoButton>
               <Button asChild size="lg" variant="outline" className="border-background/30 text-background hover:bg-background/10"><NavLink to="/contact">Contact us</NavLink></Button>
             </div>
           </div>

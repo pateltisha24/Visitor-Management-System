@@ -3,22 +3,17 @@ import { useNavigate, NavLink } from "react-router-dom";
 import { useAuth } from "../store/auth";
 import { apiFetch } from "../api";
 import { toast } from "react-toastify";
-import { FiArrowRight, FiLock, FiPlay } from "react-icons/fi";
+import { FiArrowRight, FiLock } from "react-icons/fi";
 import { AuthLayout } from "../components/auth/AuthLayout";
 import { Button } from "../components/ui/button";
 import { Input, Label } from "../components/ui/input";
+import { DemoButton } from "../components/DemoButton";
 
 export const Login = () => {
   const [user, setUser] = useState({ email: "", password: "" });
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
-  const { storeTokenInLS, enterDemo } = useAuth();
-
-  const handleDemo = async () => {
-    await enterDemo();
-    toast.success("Welcome to the FaceSense demo");
-    navigate("/service");
-  };
+  const { storeTokenInLS } = useAuth();
 
   const handleInput = (e) => setUser({ ...user, [e.target.name]: e.target.value });
 
@@ -72,9 +67,7 @@ export const Login = () => {
         <span className="h-px flex-1 bg-border" /> or <span className="h-px flex-1 bg-border" />
       </div>
 
-      <Button type="button" variant="outline" size="lg" className="w-full" onClick={handleDemo}>
-        <FiPlay /> Explore the live demo
-      </Button>
+      <DemoButton type="button" variant="outline" size="lg" className="w-full" />
       <p className="mt-2 text-center text-xs text-muted-foreground">No sign-up — jump straight into a sample dashboard.</p>
 
       <p className="mt-6 text-center text-sm text-muted-foreground">

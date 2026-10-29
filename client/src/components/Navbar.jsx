@@ -5,6 +5,7 @@ import { toast } from "react-toastify";
 import { useAuth } from "../store/auth";
 import { Button } from "./ui/button";
 import { ThemeToggle } from "./ui/theme-toggle";
+import { DemoButton } from "./DemoButton";
 import { cn } from "../lib/utils";
 
 const Brand = () => (
@@ -76,16 +77,9 @@ const MenuItem = ({ to, icon: Icon, label, onClick }) => (
 );
 
 export const Navbar = () => {
-  const { isLoggedIn, enterDemo, user, LogoutUser } = useAuth();
+  const { isLoggedIn, user, LogoutUser } = useAuth();
   const [open, setOpen] = useState(false);
   const navigate = useNavigate();
-
-  const handleDemo = async () => {
-    await enterDemo();
-    setOpen(false);
-    toast.success("Welcome to the FaceSense demo");
-    navigate("/service");
-  };
 
   const handleLogout = () => {
     LogoutUser();
@@ -122,9 +116,7 @@ export const Navbar = () => {
 
         <div className="hidden items-center gap-3 md:flex">
           {!isLoggedIn && (
-            <Button variant="ghost" size="sm" onClick={handleDemo}>
-              <FiPlay /> Live demo
-            </Button>
+            <DemoButton variant="ghost" size="sm"><FiPlay /> Live demo</DemoButton>
           )}
           <ThemeToggle />
           {isLoggedIn ? (
@@ -166,9 +158,7 @@ export const Navbar = () => {
               <NavLink to="/settings" onClick={() => setOpen(false)} className="rounded-lg px-3 py-2.5 text-sm font-medium text-muted-foreground hover:bg-secondary hover:text-foreground">Settings</NavLink>
             )}
             {!isLoggedIn && (
-              <Button variant="outline" className="mt-2 w-full" onClick={handleDemo}>
-                <FiPlay /> Live demo
-              </Button>
+              <DemoButton variant="outline" className="mt-2 w-full" onDone={() => setOpen(false)}><FiPlay /> Live demo</DemoButton>
             )}
             <div className="mt-2 flex gap-2">
               {isLoggedIn ? (

@@ -8,6 +8,7 @@ import { Button } from "../components/ui/button";
 import { Badge } from "../components/ui/badge";
 import { Card } from "../components/ui/card";
 import { DashboardPreview } from "../components/marketing/DashboardPreview";
+import { DemoButton } from "../components/DemoButton";
 
 const fadeUp = {
   hidden: { opacity: 0, y: 18 },
@@ -62,11 +63,10 @@ export const Home = () => {
               variants={fadeUp} initial="hidden" animate="show" custom={3}
               className="mt-8 flex flex-wrap items-center gap-3"
             >
-              <Button asChild size="lg">
-                <NavLink to="/register">Get started <FiArrowUpRight /></NavLink>
-              </Button>
+              {/* The demo comes first: one click to a full sample dashboard, no sign-up. */}
+              <DemoButton size="lg" />
               <Button asChild size="lg" variant="outline">
-                <NavLink to="/about">See how it works</NavLink>
+                <NavLink to="/register">Get started <FiArrowUpRight /></NavLink>
               </Button>
             </motion.div>
             <motion.div
@@ -147,7 +147,7 @@ export const Home = () => {
                 Everything happening in your space, quantified
               </h2>
             </div>
-            <Button asChild variant="outline"><NavLink to="/service">View a live dashboard <FiArrowUpRight /></NavLink></Button>
+            <DemoButton variant="outline">View a live dashboard <FiArrowUpRight /></DemoButton>
           </div>
           <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
             {features.map((f) => (
