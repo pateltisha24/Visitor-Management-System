@@ -207,20 +207,18 @@ describe("timeline (Over time zoom levels)", () => {
     expect(t.next).toBeNull();
     expect(t.prev).toBe("2026-10-19");
   });
-  it("month: its days up to today, the chosen day highlighted, zooming into a day", () => {
+  it("month: its days up to today, the chosen day highlighted", () => {
     const t = timeline(rows, "month", "2026-10-20", opts);
     expect(t.bars).toHaveLength(29);
     expect(t.bars.find((b) => b.highlight).key).toBe("2026-10-20");
-    expect(t.bars[4].zoomTo).toBe("2026-10-05");
     expect(t.avg).toBe(10);                                  // today (in progress) left out
     expect(t.prev).toBe("2026-09-01");
     expect(t.next).toBeNull();
   });
-  it("year: starts at the first month with visitors; a month zooms to the chosen day if it's in it", () => {
+  it("year: starts at the first month with visitors, the chosen day's month highlighted", () => {
     const t = timeline(rows, "year", "2026-10-20", opts);
     expect(t.bars.map((b) => [b.key, b.count])).toEqual([["2026-09", 150], ["2026-10", 290]]);
-    expect(t.bars[1].zoomTo).toBe("2026-10-20");
-    expect(t.bars[0].zoomTo).toBe("2026-09-01");
+    expect(t.bars.map((b) => b.highlight)).toEqual([false, true]);
     expect(t.prev).toBeNull();
   });
   it("monthsFromDaily counts the days with visitors", () => {

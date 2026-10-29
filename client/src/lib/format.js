@@ -282,8 +282,7 @@ export function monthsFromDaily(rows = []) {
 
 //   rows: daily history; anchor: a "YYYY-MM-DD" inside the period to show;
 //   selected: the dashboard's day (highlighted); today: no bars after it.
-// Returns {bars, title, prev, next, avg}: prev/next are anchors for ‹ › (or
-// null), and each bar's `zoomTo` is the anchor for zooming into it.
+// Returns {bars, title, prev, next, avg}: prev/next are anchors for ‹ › (or null).
 export function timeline(rows = [], level, anchor, { today = fmt(new Date()), selected = anchor } = {}) {
   const counts = Object.fromEntries(rows.map((r) => [r.date, r.count]));
   const first = rows.filter((r) => r.count).map((r) => r.date).sort()[0] || today;
@@ -305,7 +304,6 @@ export function timeline(rows = [], level, anchor, { today = fmt(new Date()), se
         tooltip: `${d.toLocaleDateString(undefined, { month: "long", year: "numeric" })}${inProgress ? " (so far)" : ""}`,
         count: byMonth[k]?.count || 0,
         highlight: k === selected.slice(0, 7),
-        zoomTo: k === selected.slice(0, 7) ? selected : fmt(d),
       };
     });
     const prevAnchor = new Date(a.getFullYear(), a.getMonth() - 12, 1);
@@ -326,7 +324,7 @@ export function timeline(rows = [], level, anchor, { today = fmt(new Date()), se
       bars.push({
         key: date, label: shortDay(d),
         tooltip: d.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" }) + (date === today ? " (so far)" : ""),
-        count: counts[date] || 0, highlight: date === selected, zoomTo: date,
+        count: counts[date] || 0, highlight: date === selected,
       });
     }
     const complete = bars.filter((b) => b.key !== today && b.count);
@@ -355,7 +353,6 @@ export function timeline(rows = [], level, anchor, { today = fmt(new Date()), se
       count: future ? null : counts[date] || 0,
       compare: counts[fmt(addDays(d, -7))] || 0,
       highlight: date === selected,
-      zoomTo: future ? null : date,
     });
   }
   const sunday = addDays(monday, 6);

@@ -225,7 +225,7 @@ export const DashboardView = ({ summary, prevSummary, recent = [], trends, conte
 
       {/* Traffic (the staffing question) + the written summary */}
       <div className="grid min-h-0 gap-4 xl:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
-        {trends && <TrafficCard {...trends} day={context.day} today={context.today} onPickDay={context.onPickDay} />}
+        {trends && <TrafficCard {...trends} day={context.day} today={context.today} />}
         <SummaryCard insights={insights} askContext={{ summary, prevSummary, trends, change: totalDelta, day: context.day, isToday: context.isToday }} />
       </div>
 

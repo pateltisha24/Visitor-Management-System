@@ -310,10 +310,8 @@ export const Service = () => {
           {loading && !summary ? (
             <SkeletonGrid />
           ) : hasData ? (
-            <DashboardView summary={summary} prevSummary={prev} recent={recent} trends={trends} context={{
-              compareLabel, compareShort, visitorChange: change, day, today, isToday,
-              onPickDay: (d) => setPicked(d === today ? null : d),
-            }} />
+            <DashboardView summary={summary} prevSummary={prev} recent={recent} trends={trends}
+                           context={{ compareLabel, compareShort, visitorChange: change, day, today, isToday }} />
           ) : (
             <EmptyState error={error} fresh={!!since && !sample && isToday} onSample={() => setSample(true)} />
           )}

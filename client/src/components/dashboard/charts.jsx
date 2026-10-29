@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { FiChevronLeft, FiChevronRight } from "react-icons/fi";
 import {
   ResponsiveContainer, ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -29,9 +29,9 @@ const TRAFFIC_TABS = [{ key: "hour", label: "By hour" }, { key: "time", label: "
 // One card for visitor traffic: the day per hour (the default, the staffing
 // question), a zoomable week / month / year view, and the regular weekly pattern.
 //   footfall: {data, description, currentLabel, compareLabel, expectedLabel, nowHour}
-//   overTime: {history}   day, today, onPickDay: the dashboard's day
+//   overTime: {history}   day, today: the dashboard's day
 //   weekly:   {matrix, description}
-export const TrafficCard = ({ footfall, overTime, weekly, day, today, onPickDay }) => {
+export const TrafficCard = ({ footfall, overTime, weekly, day, today }) => {
   const [tab, setTab] = useState("hour");
   const description = {
     hour: footfall.description,
@@ -41,7 +41,7 @@ export const TrafficCard = ({ footfall, overTime, weekly, day, today, onPickDay 
   return (
     <ChartCard title="Traffic" description={description} action={<Tabs tabs={TRAFFIC_TABS} value={tab} onChange={setTab} />}>
       {tab === "hour" && <FootfallView {...footfall} />}
-      {tab === "time" && <OverTimeView history={overTime.history} day={day} today={today} onPickDay={onPickDay} />}
+      {tab === "time" && <OverTimeView history={overTime.history} day={day} today={today} />}
       {tab === "week" && <BusyTimesView matrix={weekly.matrix} />}
     </ChartCard>
   );
@@ -90,63 +90,26 @@ const MOTION = {
 };
 const navButton = "grid h-7 w-7 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground disabled:opacity-30 disabled:hover:bg-transparent";
 
-const OverTimeView = ({ history, day, today, onPickDay }) => {
+// Zoom with the slider; the arrows move through time.
+const OverTimeView = ({ history, day, today }) => {
   const [level, setLevel] = useState("month");
   const [anchor, setAnchor] = useState(day);
-  const [motion, setMotion] = useState(null);   // {anim, origin} for the view that just appeared
+  const [motion, setMotion] = useState(null);   // animation for the view that just appeared
   const [viewId, setViewId] = useState(0);      // re-keys the chart so the animation replays
-  const box = useRef(null);
 
-  // Picking a day elsewhere (calendar, a week bar) brings the view to it.
+  // Picking a day in the calendar brings the view to it.
   useEffect(() => { setAnchor(day); }, [day]);
 
   const t = useMemo(() => timeline(history, level, anchor, { today, selected: day }), [history, level, anchor, today, day]);
 
-  const go = (nextLevel, nextAnchor, anim, origin = "50% 100%") => {
-    setMotion({ anim, origin }); setLevel(nextLevel); setAnchor(nextAnchor); setViewId((v) => v + 1);
+  const go = (nextLevel, nextAnchor, anim) => {
+    setMotion(anim); setLevel(nextLevel); setAnchor(nextAnchor); setViewId((v) => v + 1);
   };
   const zoomTo = (target) => {
     const from = ZOOM_LEVELS.indexOf(level), to = ZOOM_LEVELS.indexOf(target);
     if (to < 0 || to === from) return;
     go(target, anchor, to > from ? "zoom-out" : "zoom-in");
   };
-  // +1 zooms out (towards a year), -1 zooms in (towards a week).
-  const zoomBy = (step) => zoomTo(ZOOM_LEVELS[ZOOM_LEVELS.indexOf(level) + step]);
-  // Clicking a bar zooms into it, growing the new view out of that bar; in the
-  // week view it picks that day for the whole dashboard.
-  const onBar = (index) => {
-    const bar = t.bars[index];
-    if (!bar?.zoomTo) return;
-    if (level === "week") { onPickDay?.(bar.zoomTo); return; }
-    go(level === "year" ? "month" : "week", bar.zoomTo, "zoom-in", `${((index + 0.5) / t.bars.length) * 100}% 100%`);
-  };
-
-  // Scroll or pinch over the chart: one gesture moves one level. A trackpad
-  // keeps sending scroll events after a flick, so wait for a pause before the
-  // next one. On narrow screens plain scrolling stays with the page (pinch still zooms).
-  const zoomRef = useRef(zoomBy);
-  useEffect(() => { zoomRef.current = zoomBy; });
-  useEffect(() => {
-    const el = box.current;
-    if (!el) return undefined;
-    const wide = window.matchMedia("(min-width: 1280px)");
-    let acc = 0, locked = false, last = 0;
-    const onWheel = (e) => {
-      if (!e.ctrlKey && !wide.matches) return;
-      if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
-      e.preventDefault();
-      const now = e.timeStamp;
-      if (locked && now - last < 250) { last = now; return; }
-      locked = false; last = now;
-      acc += e.deltaY;
-      if (Math.abs(acc) < (e.ctrlKey ? 6 : 40)) return;
-      zoomRef.current(acc > 0 ? 1 : -1);
-      acc = 0; locked = true;
-    };
-    el.addEventListener("wheel", onWheel, { passive: false });
-    return () => el.removeEventListener("wheel", onWheel);
-  }, []);
-
   const labels = Object.fromEntries(t.bars.map((b) => [b.key, b.label]));
   const tips = Object.fromEntries(t.bars.map((b) => [b.key, b.tooltip]));
   const hasData = t.bars.some((b) => b.count);
@@ -167,9 +130,8 @@ const OverTimeView = ({ history, day, today, onPickDay }) => {
         </div>
         <ZoomSlider level={level} onChange={zoomTo} />
       </div>
-      <div ref={box} className="relative mt-1 flex min-h-0 flex-1 flex-col overflow-hidden"
-           title={level === "week" ? "Click a day to see it across the dashboard; scroll or pinch to zoom out" : "Click a bar to zoom in; scroll or pinch to zoom"}>
-        <div key={viewId} className={cn("flex min-h-0 flex-1 flex-col", motion && MOTION[motion.anim])} style={{ transformOrigin: motion?.origin }}>
+      <div className="relative mt-1 flex min-h-0 flex-1 flex-col overflow-hidden">
+        <div key={viewId} className={cn("flex min-h-0 flex-1 flex-col origin-bottom", motion && MOTION[motion])}>
           {hasData || level === "week" ? (
             <ChartBox>
               <ResponsiveContainer width="100%" height="100%">
@@ -182,12 +144,8 @@ const OverTimeView = ({ history, day, today, onPickDay }) => {
                     <ReferenceLine y={t.avg} stroke="hsl(var(--muted-foreground))" strokeDasharray="4 4"
                                    label={{ value: `avg ${Math.round(t.avg)}`, position: "insideTopRight", fill: "hsl(var(--muted-foreground))", fontSize: 11 }} />
                   )}
-                  <Bar dataKey="count" name="Visitors" fill="hsl(var(--primary) / 0.45)" radius={[4, 4, 0, 0]} maxBarSize={level === "month" ? 28 : 56}
-                       onClick={(_, index) => onBar(index)}>
-                    {t.bars.map((b) => (
-                      <Cell key={b.key} style={{ cursor: b.zoomTo ? "pointer" : "default" }}
-                            fill={b.highlight ? "hsl(var(--primary))" : "hsl(var(--primary) / 0.45)"} />
-                    ))}
+                  <Bar dataKey="count" name="Visitors" fill="hsl(var(--primary) / 0.45)" radius={[4, 4, 0, 0]} maxBarSize={level === "month" ? 28 : 56}>
+                    {t.bars.map((b) => <Cell key={b.key} fill={b.highlight ? "hsl(var(--primary))" : "hsl(var(--primary) / 0.45)"} />)}
                   </Bar>
                   {level === "week" && (
                     <Line dataKey="compare" name="The week before" type="monotone" stroke="hsl(var(--muted-foreground))"
