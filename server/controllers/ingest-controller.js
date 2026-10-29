@@ -1,5 +1,6 @@
 const mongoose = require("mongoose");
 const Client1 = require("../models/client1");
+const ReturnVisit = require("../models/return-visit");
 const realtime = require("../utils/realtime");
 
 // Atomically get the next numeric _id from the shared "counters" collection
@@ -42,4 +43,21 @@ const ingest = async (req, res) => {
     }
 };
 
-module.exports = { ingest };
+// POST /api/ingest/return — a visitor already counted today came back.
+const ingestReturn = async (req, res) => {
+    try {
+        const { Date: date, Time, Timestamp, cameraId, cameraName } = req.body;
+        const now = new Date();
+        const visit = await ReturnVisit.create({
+            Timestamp: Timestamp ? new Date(Timestamp) : now,
+            Date: date || now.toISOString().slice(0, 10),
+            Time: Time || now.toTimeString().slice(0, 8),
+            ...(cameraId && { cameraId, cameraName: cameraName || cameraId }),
+        });
+        res.status(201).json({ message: "stored", id: visit._id });
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+};
+
+module.exports = { ingest, ingestReturn };

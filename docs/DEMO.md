@@ -115,7 +115,7 @@ for the demo: a looped clip counts the same people again.
 Two terminals on the Mac, both from `model/` with the venv active:
 
 ```bash
-python pipeline.py --profile demo --reid --device 1 --camera-name "Front desk" --allow-preview --no-show
+python pipeline.py --profile demo --device 1 --camera-name "Front desk" --allow-preview --no-show
 ```
 
 ```bash
@@ -126,8 +126,9 @@ Each prints `live: connected ... (preview allowed)`. When the dashboard opens a 
 that camera prints `live: preview started`.
 
 - `--profile demo` makes a visitor land in about 1–2 s (fewer samples per face).
-- `--reid` gives the "returning visitor, not double-counted" moment. Keep it on the
-  Front desk only.
+- Same-day re-ID is on by default: it gives the "returning visitor, not
+  double-counted" moment and the dashboard's "Came back" count. Add `--no-reid` to
+  the Store entrance command, since a recorded clip has no real return visits.
 - Analysis runs on a background thread, so the preview stays smooth; if the Mac
   still struggles with two cameras, raise `VMS_ANALYZE_EVERY` for the Store entrance.
 
@@ -173,7 +174,7 @@ Record one complete rehearsal (QuickTime → New Screen Recording) as the last-r
 | Camera online but "Preview is off" | Start that pipeline with `--allow-preview` |
 | `save failed: 401` | API key mismatch between `model/.env` and the server |
 | Faces boxed but never counted | Too few samples: hold still a moment, improve lighting, or move closer |
-| Everyone counted twice after stepping out | Add `--reid` (uses SFace; needs the default YuNet detector) |
+| Everyone counted twice after stepping out | Re-ID is off: remove `--no-reid` / `VMS_REID=false` (it needs the default YuNet detector) |
 | "Could not open video source" | Wrong `--device` index (`--list-devices`), or the IP-camera URL isn't reachable from the Mac |
 
 ## 9. Rehearse entirely on the Mac (no cloud)

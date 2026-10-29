@@ -1,7 +1,7 @@
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip } from "recharts";
 import { useState } from "react";
 import {
-  FiUsers, FiUserCheck, FiPieChart, FiTrendingUp,
+  FiUsers, FiRepeat, FiPieChart, FiTrendingUp,
   FiClock, FiSmile, FiZap, FiAlertTriangle, FiCpu,
 } from "react-icons/fi";
 import { Card } from "../ui/card";
@@ -10,8 +10,8 @@ import { useAuth } from "../../store/auth";
 import { api } from "../../api";
 import { emotionColor, GENDER_COLORS, axisProps } from "./theme";
 import { ChartCard, CustomTooltip, Delta, num } from "./chartParts";
-import { FootfallChart, DailyTrendChart, BusyTimesHeatmap, MoodCard } from "./charts";
-import { pctDelta, positivityIndex, hourTotals, buildInsights, detectAnomalies, emotionShares } from "../../lib/format";
+import { TrafficCard, MoodCard } from "./charts";
+import { pctDelta, positivityIndex, hourTotals, buildInsights, detectAnomalies, emotionShares, hourSpan } from "../../lib/format";
 
 const AiSummaryCard = ({ summary }) => {
   const { isOffline } = useAuth();
@@ -82,10 +82,10 @@ const HighlightTile = ({ icon: Icon, label, value, delta }) => (
   </Card>
 );
 
-// `trends` (optional) carries the data for the hourly, daily and weekly charts:
-//   { footfall: {data, title, description, currentLabel, compareLabel},
-//     daily: {data, description}, weekly: matrix | null }
-export const DashboardView = ({ summary, prevSummary, recent = [], trends }) => {
+// `trends` (optional) carries the data for the Traffic card's three views:
+//   { footfall: {data, description, currentLabel, compareLabel},
+//     daily: {data, description}, weekly: {matrix, description} }
+export const DashboardView = ({ summary, prevSummary, recent = [], trends, context = {} }) => {
   const { total = 0, gender = {}, genderAge = [], emotion = {}, gi = {}, byHour = [], ageEmotionMatrix = [] } = summary;
 
   const female = gender.Female || 0, male = gender.Male || 0;
@@ -94,13 +94,15 @@ export const DashboardView = ({ summary, prevSummary, recent = [], trends }) => 
   const topAge = (summary.age || []).reduce((a, b) => (b.count > (a?.count || 0) ? b : a), null);
 
   // Comparison + highlights.
-  const totalDelta = prevSummary ? pctDelta(total, prevSummary.total) : null;
+  // Like-for-like when available (a day in progress vs complete days would mislead).
+  const totalDelta = context.visitorChange ? context.visitorChange.pct : prevSummary ? pctDelta(total, prevSummary.total) : null;
   const pos = positivityIndex(emotion);
   const posDelta = prevSummary ? pos - positivityIndex(prevSummary.emotion) : null;
   const hours = hourTotals(byHour);
   const busiest = hours.reduce((a, b) => (b.total > (a?.total || 0) ? b : a), null);
   const happiest = hours.reduce((a, b) => (b.happy > (a?.happy || 0) ? b : a), null);
-  const insights = buildInsights(summary, prevSummary);
+  const returning = summary.returning;
+  const insights = buildInsights(summary, prevSummary, { ...context, returning });
   const anomalies = detectAnomalies(byHour);
 
   const shares = emotionShares(emotion);
@@ -116,8 +118,10 @@ export const DashboardView = ({ summary, prevSummary, recent = [], trends }) => 
       <div className="order-1 min-w-0 space-y-6 xl:order-2">
       {/* KPIs */}
       <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 2xl:grid-cols-4">
-        <StatCard icon={FiUsers} label="Total visitors" value={num(total)} sub="readings in range" delta={totalDelta} />
-        <StatCard icon={FiUserCheck} label="Individuals : Groups" value={`${num(gi.individual || 0)}:${num(gi.group || 0)}`} sub="solo vs. accompanied" />
+        <StatCard icon={FiUsers} label="Total visitors" value={num(total)} delta={totalDelta}
+                  sub={`${num(gi.individual || 0)} on their own · ${num(gi.group || 0)} with others`} />
+        <StatCard icon={FiRepeat} label="Came back" value={returning == null ? "—" : num(returning)}
+                  sub={returning == null ? "same-day returns" : `later the same day · ${total ? Math.round((returning / total) * 100) : 0}% of visitors`} />
         <StatCard icon={FiPieChart} label="Gender split" value={`${femalePct}% F`} sub={`${malePct}% male`} />
         <StatCard icon={FiTrendingUp} label="Top age group" value={topAge?.age || "—"} sub={topAge ? `${num(topAge.count)} visitors` : "no data"} />
       </div>
@@ -126,7 +130,7 @@ export const DashboardView = ({ summary, prevSummary, recent = [], trends }) => 
       {anomalies.length > 0 && (
         <Card className="border-amber-500/30 bg-amber-500/[0.06] p-5">
           <h3 className="flex items-center gap-2 text-sm font-semibold text-amber-700 dark:text-amber-400">
-            <FiAlertTriangle size={16} /> Anomalies detected
+            <FiAlertTriangle size={16} /> Worth a look
           </h3>
           <ul className="mt-2 space-y-1.5">
             {anomalies.map((a, i) => (
@@ -140,7 +144,7 @@ export const DashboardView = ({ summary, prevSummary, recent = [], trends }) => 
 
       {/* Insights + recent feed */}
       <div className="grid gap-6 lg:grid-cols-[1.5fr_1fr]">
-        <ChartCard title="Today's takeaways" description="Auto-generated highlights from the current view.">
+        <ChartCard title="Takeaways" description="What stood out, in plain words, for the selected period.">
           <ul className="space-y-3">
             {insights.length ? insights.map((t, i) => (
               <li key={i} className="flex items-start gap-3 text-sm">
@@ -166,12 +170,11 @@ export const DashboardView = ({ summary, prevSummary, recent = [], trends }) => 
         </ChartCard>
       </div>
 
-      {/* Footfall by hour: the staffing question */}
-      {trends?.footfall && <FootfallChart {...trends.footfall} />}
+      {/* Traffic: by hour (the staffing question), by day, busy times */}
+      {trends && <TrafficCard {...trends} />}
 
-      {/* Daily trend + who is visiting */}
-      <div className="grid gap-6 lg:grid-cols-[1.4fr_1fr]">
-        {trends?.daily && <DailyTrendChart {...trends.daily} />}
+      {/* Who is visiting + how they seemed */}
+      <div className="grid gap-6 lg:grid-cols-[1fr_1.2fr]">
         <ChartCard title="Visitors by age & gender" description="Distribution of visitors across age groups, split by gender.">
           <ResponsiveContainer width="100%" height={280}>
             <BarChart data={genderAge} margin={{ top: 8, right: 8, left: -16, bottom: 0 }} barGap={4}>
@@ -184,19 +187,14 @@ export const DashboardView = ({ summary, prevSummary, recent = [], trends }) => 
             </BarChart>
           </ResponsiveContainer>
         </ChartCard>
+        <MoodCard shares={shares} moodIndex={pos} moodDelta={posDelta} ageEmotionMatrix={ageEmotionMatrix} byHour={byHour} />
       </div>
-
-      {/* Mood: overall / by age / by hour */}
-      <MoodCard shares={shares} moodIndex={pos} moodDelta={posDelta} ageEmotionMatrix={ageEmotionMatrix} byHour={byHour} />
-
-      {/* Weekly pattern (needs more than one day) */}
-      {trends?.weekly && <BusyTimesHeatmap matrix={trends.weekly} />}
       </div>
 
       {/* Right: highlight tiles (sticky on scroll) */}
       <aside className="order-3 grid gap-4 sm:grid-cols-3 xl:grid-cols-1 xl:sticky xl:top-20 xl:self-start">
-        <HighlightTile icon={FiClock} label="Peak hour" value={busiest ? `${busiest.hour}:00` : "—"} />
-        <HighlightTile icon={FiSmile} label="Happiest hour" value={happiest && happiest.happy ? `${happiest.hour}:00` : "—"} />
+        <HighlightTile icon={FiClock} label="Peak hour" value={busiest ? hourSpan(busiest.hour) : "—"} />
+        <HighlightTile icon={FiSmile} label="Happiest hour" value={happiest && happiest.happy ? hourSpan(happiest.hour) : "—"} />
         <HighlightTile icon={FiZap} label="Mood index" value={`${pos}%`} delta={posDelta} />
       </aside>
     </div>

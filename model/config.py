@@ -44,6 +44,7 @@ EMOTION_LIST = ['Angry', 'Disgust', 'Fear', 'Happy', 'Neutral', 'Sad', 'Surprise
 MONGODB_URI = os.environ.get("MONGODB_URI")
 DB_NAME = os.environ.get("VMS_DB_NAME", "test")
 COLLECTION_NAME = os.environ.get("VMS_COLLECTION", "client1")
+RETURNS_COLLECTION = os.environ.get("VMS_RETURNS_COLLECTION", "returns")
 COUNTER_NAME = os.environ.get("VMS_COUNTER", "client1_id")
 
 # Default RTSP stream for the CCTV scripts (override with --rtsp_url or env).
@@ -145,12 +146,13 @@ PREVIEW_ALLOWED = os.environ.get("VMS_PREVIEW", "false").lower() in ("1", "true"
 PREVIEW_FPS = float(os.environ.get("VMS_PREVIEW_FPS", "8"))
 PREVIEW_WIDTH = int(os.environ.get("VMS_PREVIEW_WIDTH", "640"))
 
-# ---- Same-day face re-identification (opt-in) ----
-# When on, a face embedding is computed per visitor and compared against those
-# already seen *today* (held in memory only, cleared at midnight). This stops the
-# same person being counted twice if they leave and return the same day.
-# Nothing biometric is written to disk.
-REID_ENABLED = os.environ.get("VMS_REID", "false").lower() in ("1", "true", "yes")
+# ---- Same-day face re-identification (on by default) ----
+# A face embedding is computed per visitor and compared against those already
+# seen *today* (held in memory only, cleared at midnight). This stops the same
+# person being counted twice if they leave and return the same day, and records
+# an anonymous "came back" event (time + camera only). Nothing biometric is
+# written to disk. Turn off with VMS_REID=false or --no-reid.
+REID_ENABLED = os.environ.get("VMS_REID", "true").lower() in ("1", "true", "yes")
 # Embedding model: "sface" (OpenCV, needs the YuNet detector) or a DeepFace model
 # name such as "Facenet512" (needs the DeepFace engine).
 REID_MODEL = os.environ.get("VMS_REID_MODEL", "sface")

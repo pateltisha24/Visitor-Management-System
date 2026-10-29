@@ -16,6 +16,7 @@ class MongoStore:
         client = MongoClient(config.require_mongo_uri())
         db = client[config.DB_NAME]
         self.collection = db[config.COLLECTION_NAME]
+        self.returns = db[config.RETURNS_COLLECTION]
         self.counters = db["counters"]
         # Ensure the counter document exists.
         if not self.counters.find_one({"_id": config.COUNTER_NAME}):
@@ -33,6 +34,10 @@ class MongoStore:
         reading = {"_id": self._next_id(), **reading}
         self.collection.insert_one(reading)
         return reading
+
+    def save_return(self, visit):
+        self.returns.insert_one(dict(visit))
+        return visit
 
 
 class HttpStore:
@@ -55,11 +60,27 @@ class HttpStore:
         resp.raise_for_status()
         return reading
 
+    def save_return(self, visit):
+        payload = {**visit, "Timestamp": visit["Timestamp"].isoformat()}
+        resp = self._requests.post(self.url.rstrip("/") + "/return", json=payload, headers=self.headers, timeout=10)
+        resp.raise_for_status()
+        return visit
+
 
 def get_store():
     if config.STORAGE == "http":
         return HttpStore()
     return MongoStore()
+
+
+def build_return(camera_id=None, camera_name=None):
+    """A same-day return visit: when and where only (no attributes, nothing biometric)."""
+    now = datetime.now()
+    visit = {"Timestamp": datetime.now(timezone.utc), "Date": now.date().isoformat(), "Time": now.time().isoformat()}
+    if camera_id:
+        visit["cameraId"] = camera_id
+        visit["cameraName"] = camera_name or camera_id
+    return visit
 
 
 def build_reading(age, gender, emotion, group_size, camera_id=None, camera_name=None):

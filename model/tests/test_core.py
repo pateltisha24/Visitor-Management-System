@@ -11,6 +11,7 @@ import numpy as np
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+import storage  # noqa: E402
 from face_models import MiVOLO, align_face  # noqa: E402
 from pipeline import AnalysisWorker  # noqa: E402
 from reid import ReIDGallery  # noqa: E402
@@ -118,6 +119,13 @@ class TrackerTest(unittest.TestCase):
             tr.update([])
         self.assertEqual(len(tr.drain_finalised()), 1)
         self.assertEqual(tr.drain_finalised(), [])
+
+
+class ReturnVisitTest(unittest.TestCase):
+    def test_a_return_visit_records_only_when_and_where(self):
+        visit = storage.build_return("front-desk", "Front desk")
+        self.assertEqual(set(visit), {"Timestamp", "Date", "Time", "cameraId", "cameraName"})
+        self.assertIsNotNone(visit["Timestamp"].tzinfo)   # exact UTC instant
 
 
 class PreprocessingTest(unittest.TestCase):

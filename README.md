@@ -243,7 +243,7 @@ which is right for one instance; running several would need a shared pub/sub and
 FaceSense is **private by design**: no recognition, **on-edge inference** (video stays on the
 camera machine, except a camera's optional live preview, which is relayed to signed-in viewers
 while they watch and never recorded), **anonymous readings only**, and **no images or biometric
-templates stored** (optional same-day re-ID keeps face embeddings in memory and wipes them daily). Because no personal data is collected, it helps stay aligned with regulations such
+templates stored** (same-day re-ID, on by default and switchable off, keeps face embeddings in memory and wipes them daily; a return is stored only as a time and camera). Because no personal data is collected, it helps stay aligned with regulations such
 as GDPR. See the in-app `/privacy` page.
 
 ## Testing

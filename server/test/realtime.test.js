@@ -148,3 +148,27 @@ test("weeklyGrid: averages per weekday x hour over the days that had visitors", 
     assert.deepStrictEqual(days, { 1: 1, 6: 2 });
     assert.strictEqual(cell(0, "10"), undefined);
 });
+
+test("returns: validator accepts time + camera only; attribute filters don't apply", () => {
+    const { returnSchema } = require("../validators/ingest-validator");
+    const { returnFilter } = require("../controllers/analytics-controller");
+    assert.strictEqual(returnSchema.safeParse({ cameraId: "front-desk", cameraName: "Front desk" }).success, true);
+    assert.strictEqual(returnSchema.safeParse({ cameraId: "front desk!" }).success, false);
+    const f = returnFilter({ from: "2026-10-01", to: "2026-10-07", gender: "Female", emotion: "Happy", camera: "entrance" });
+    assert.deepStrictEqual(f.Date, { $gte: "2026-10-01", $lte: "2026-10-07" });
+    assert.strictEqual(f.cameraId, "entrance");
+    assert.strictEqual(f.Gender, undefined);
+    assert.strictEqual(f.Emotion, undefined);
+});
+
+test("AI facts: plain clock times and quietest *open* hour", () => {
+    const { summaryFacts } = require("../controllers/insights-controller");
+    const facts = summaryFacts({
+        total: 300, gender: { Female: 160, Male: 140 }, age: [{ age: "(20-30)", count: 120 }],
+        emotion: { Happy: 100, Neutral: 200 }, gi: { individual: 250, group: 50 },
+        byHour: [{ hour: "00", Neutral: 2 }, { hour: "09", Neutral: 20 }, { hour: "12", Happy: 100 }, { hour: "15", Neutral: 60 }, { hour: "18", Neutral: 118 }],
+    });
+    assert.strictEqual(facts.busiestTimes[0], "6 pm-7 pm (118 visitors)");
+    assert.strictEqual(facts.quietestOpenTime, "9 am-10 am (20 visitors)");   // not the 2 stray readings after midnight
+    assert.strictEqual(facts.lookedHappyOrSurprised, "33%");
+});

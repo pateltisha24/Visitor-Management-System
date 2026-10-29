@@ -14,7 +14,7 @@ Usage:
   python pipeline.py --engine opencv       # use the lightweight legacy engine
 
 Live demo (see docs/DEMO.md): one process per camera, tagged and previewable:
-  python pipeline.py --profile demo --camera-id front-desk --camera-name "Front desk" --allow-preview --reid
+  python pipeline.py --profile demo --camera-id front-desk --camera-name "Front desk" --allow-preview
   python pipeline.py --profile demo --camera-id entrance --camera-name "Store entrance" \
       --source file --file entrance.mp4 --realtime --allow-preview
 """
@@ -257,8 +257,10 @@ def main():
                     help="Face detector: yunet (default, with landmarks for alignment) or the original ssd")
     ap.add_argument("--no-db", action="store_true", help="Don't persist readings")
     ap.add_argument("--no-show", action="store_true", help="Run headless (no window)")
-    ap.add_argument("--reid", action="store_true",
-                    help="Enable same-day face re-identification (needs the DeepFace engine)")
+    ap.add_argument("--reid", dest="reid", action="store_true", default=config.REID_ENABLED,
+                    help="Same-day re-identification (on by default; in memory only, wiped nightly)")
+    ap.add_argument("--no-reid", dest="reid", action="store_false",
+                    help="Turn same-day re-identification off")
     ap.add_argument("--profile", choices=sorted(config.PROFILES), default=config.PROFILE,
                     help="Tuning profile: 'default' (accuracy) or 'demo' (responsiveness)")
     ap.add_argument("--camera-id", default=config.CAMERA_ID,
@@ -307,12 +309,12 @@ def main():
     tracker = CentroidTracker(config.TRACK_MAX_DISAPPEARED, config.TRACK_MAX_DISTANCE)
     store = None if args.no_db else storage.get_store()
 
-    # Optional same-day face re-identification (opt-in). Stops the same person
-    # being counted twice if they leave and return the same day. Embeddings are
-    # held in memory only and cleared at date rollover — nothing biometric is
-    # written to disk.
+    # Same-day face re-identification (on by default, --no-reid turns it off).
+    # Stops the same person being counted twice if they leave and return the same
+    # day. Embeddings are held in memory only and cleared at date rollover —
+    # nothing biometric is written to disk.
     reid = embed = None
-    if args.reid or config.REID_ENABLED:
+    if args.reid:
         if config.REID_MODEL.lower() == "sface":
             if args.detector != "yunet":
                 print("Re-ID with SFace needs the YuNet detector (its landmarks); continuing without re-ID.")
@@ -369,6 +371,11 @@ def main():
                 print(f"returning visitor (person #{person_id}) — not double-counting")
                 if live:
                     live.send_event("returning_visitor")
+                if store is not None:
+                    try:
+                        store.save_return(storage.build_return(args.camera_id, args.camera_name))
+                    except Exception as e:
+                        print(f"saving the return visit failed: {e}")
                 return
         visitors += 1
         if store is None:

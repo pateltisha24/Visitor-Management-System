@@ -12,7 +12,7 @@ import { Card } from "../components/ui/card";
 import { cn } from "../lib/utils";
 import {
   RANGE_PRESETS, presetRange, previousRange, downloadCSV, fmt, addDays, parseDate,
-  trendRange, dailySeries, footfallSeries, weeklyMatrix,
+  trendRange, dailySeries, footfallSeries, weeklyMatrix, visitorChange,
 } from "../lib/format";
 
 const POLL_MS = 10000;
@@ -36,6 +36,9 @@ export const Service = () => {
   const [prev, setPrev] = useState(null);
   const [recent, setRecent] = useState([]);
   const [trends, setTrends] = useState(null);
+  const [change, setChange] = useState(null);   // like-for-like visitor change
+  // What the "previous" summary covers, for plain-language comparisons.
+  const compareLabel = { today: "yesterday", "7d": "the previous 7 days", "30d": "the previous 30 days" }[preset];
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [live, setLive] = useState(true);
@@ -94,7 +97,10 @@ export const Service = () => {
       // Averages (footfall by hour, busy times) use complete days only: today is
       // still in progress, so counting it as a full day would drag them down.
       const multiDay = preset !== "today";
-      const completeR = multiDay && !fresh ? { from: range.from, to: fmt(addDays(new Date(), -1)) } : range;
+      const yesterday = fmt(addDays(new Date(), -1));
+      const completeR = multiDay && !fresh ? { from: range.from, to: yesterday } : range;
+      // The weekly pattern needs several weeks: on "Today" use the last 4.
+      const weeklyR = multiDay ? completeR : { from: fmt(addDays(new Date(), -28)), to: yesterday };
       const get = (path, r, extra) => api.get(`/api/analytics/${path}${queryString(r, extra)}`).then((res) => res.data);
       const [sum, recentRows, prevSum, hourly, hourlyCmp, daily, weekly] = await Promise.all([
         get("summary", range),
@@ -103,17 +109,17 @@ export const Service = () => {
         get("hourly", completeR),
         footR ? get("hourly", footR) : null,
         get("daily", trendR),
-        multiDay ? get("weekly", completeR) : null,   // a single day can't show a weekly pattern
+        get("weekly", weeklyR),
       ]);
       if (myId !== reqId.current) return; // a newer request superseded this one
       setSummary(sum);
       setRecent(recentRows || []);
       setPrev(prevSum);
       const weekday = parseDate(range.from || fmt(new Date())).toLocaleDateString(undefined, { weekday: "long" });
+      setChange(fresh ? null : visitorChange({ preset, summary: sum, prev: prevSum, hourly, hourlyCmp, compareWeekday: weekday }));
       setTrends({
         footfall: {
           data: footfallSeries(hourly, hourlyCmp),
-          title: "Footfall by hour",
           description: multiDay
             ? "Average visitors per hour on the complete days of this period, against the previous period."
             : footR ? `Visitors per hour today, against last ${weekday}.` : "Visitors per hour today.",
@@ -124,7 +130,12 @@ export const Service = () => {
           data: dailySeries(daily, trendR.from, trendR.to),
           description: preset === "today" ? "The last 14 days; today is highlighted." : "Visitors per day in this period.",
         },
-        weekly: weekly ? weeklyMatrix(weekly.cells) : null,
+        weekly: {
+          matrix: weeklyMatrix(weekly?.cells || []),
+          description: multiDay
+            ? "Average visitors by day of the week and hour over this period — darker means busier."
+            : "Your regular weekly pattern over the last 4 weeks — darker means busier.",
+        },
       });
       setError(false); setLastUpdated(new Date());
     } catch {
@@ -272,7 +283,7 @@ export const Service = () => {
           {loading ? (
             <SkeletonGrid />
           ) : hasData ? (
-            <DashboardView summary={summary} prevSummary={prev} recent={recent} trends={trends} />
+            <DashboardView summary={summary} prevSummary={prev} recent={recent} trends={trends} context={{ compareLabel, visitorChange: change }} />
           ) : (
             <EmptyState error={error} fresh={!!since && !sample} onSample={() => setSample(true)} />
           )}

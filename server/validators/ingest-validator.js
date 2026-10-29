@@ -13,4 +13,13 @@ const ingestSchema = z.object({
     cameraName: z.string().max(80).optional(),
 });
 
-module.exports = { ingestSchema };
+// A same-day return visit: when and where only.
+const returnSchema = z.object({
+    Date: z.string().optional(),
+    Time: z.string().optional(),
+    Timestamp: z.string().optional(),
+    cameraId: ingestSchema.shape.cameraId,
+    cameraName: ingestSchema.shape.cameraName,
+});
+
+module.exports = { ingestSchema, returnSchema };

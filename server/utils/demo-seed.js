@@ -7,6 +7,7 @@
 const bcrypt = require("bcryptjs");
 const mongoose = require("mongoose");
 const Client1 = require("../models/client1");
+const ReturnVisit = require("../models/return-visit");
 const User = require("../models/user-model");
 
 const DEMO_EMAIL = "demo@facesense.app";
@@ -95,6 +96,26 @@ function generate(now = new Date()) {
   return docs;
 }
 
+// Same-day returns: ~8-12% of each day's visitors come back 20 min to 3 h later
+// (never past closing, never in the future).
+function generateReturns(docs, now = new Date()) {
+  const byDate = {};
+  for (const d of docs) (byDate[d.Date] = byDate[d.Date] || []).push(d);
+  const out = [];
+  for (const visits of Object.values(byDate)) {
+    const n = Math.round(visits.length * (0.08 + Math.random() * 0.04));
+    for (let i = 0; i < n; i++) {
+      const v = visits[randInt(0, visits.length - 1)];
+      const ts = new Date(v.Timestamp.getTime() + randInt(20, 180) * 60 * 1000);
+      if (ts > now || ts.getHours() > CLOSE_HOUR || localDate(ts) !== v.Date) continue;
+      const r = { cameraId: v.cameraId, cameraName: v.cameraName, sample: true };
+      setTime(r, ts);
+      out.push(r);
+    }
+  }
+  return out;
+}
+
 // Reserve a block of ids from the counter the pipeline and /api/ingest share.
 async function reserveIds(count) {
   const counters = mongoose.connection.collection("counters");
@@ -119,11 +140,12 @@ async function ensureDemoUser() {
 // Replace (or with keep=true, add to) the sample readings. Returns the count.
 async function seedSampleData({ keep = false } = {}) {
   await ensureDemoUser();
-  if (!keep) await Client1.deleteMany({ sample: true });
+  if (!keep) await Promise.all([Client1.deleteMany({ sample: true }), ReturnVisit.deleteMany({ sample: true })]);
   const docs = generate();
   const firstId = await reserveIds(docs.length);
   docs.forEach((doc, i) => { doc._id = firstId + i; });
   await Client1.insertMany(docs);
+  await ReturnVisit.insertMany(generateReturns(docs));
   return docs.length;
 }
 

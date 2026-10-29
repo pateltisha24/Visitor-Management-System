@@ -75,7 +75,7 @@ const dashboardLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 6000, standa
 const ingestLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 3000, standardHeaders: true, legacyHeaders: false });
 
 app.use('/api', (req, res, next) => {
-    if (req.path === '/ingest') return ingestLimiter(req, res, next);
+    if (req.path.startsWith('/ingest')) return ingestLimiter(req, res, next);
     if (req.path.startsWith('/analytics/') || req.path === '/cameras') return dashboardLimiter(req, res, next);
     return apiLimiter(req, res, next);
 });

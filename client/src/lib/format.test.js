@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   presetRange, previousRange, pctDelta, positivityIndex, hourTotals,
   buildInsights, detectAnomalies, fmt, parseDate, trendRange, dailySeries,
-  footfallSeries, weeklyMatrix, emotionShares,
+  footfallSeries, weeklyMatrix, emotionShares, hourSpan, ageLabel, visitorChange,
 } from "./format";
 
 describe("pctDelta", () => {
@@ -51,34 +51,55 @@ describe("hourTotals", () => {
 });
 
 describe("buildInsights", () => {
-  it("produces narrative bullets and a sentiment comparison", () => {
-    const summary = {
-      total: 100,
-      gender: { Female: 70, Male: 30 },
-      age: [{ age: "(20-30)", count: 60 }, { age: "(30-50)", count: 40 }],
-      emotion: { Happy: 60, Sad: 40 },
-      gi: { individual: 60, group: 40 },
-      byHour: [{ hour: "12", Happy: 30 }, { hour: "13", Happy: 10 }],
-    };
-    const prev = { emotion: { Happy: 40, Sad: 60 } };
-    const out = buildInsights(summary, prev);
-    expect(out.length).toBeGreaterThanOrEqual(4);
-    expect(out.some((s) => /Busiest/.test(s))).toBe(true);
-    expect(out.some((s) => /sentiment/i.test(s))).toBe(true);
+  const summary = {
+    total: 140, days: 7,
+    gender: { Female: 77, Male: 63 },
+    age: [{ age: "(20-30)", count: 60 }, { age: "(30-50)", count: 40 }],
+    emotion: { Happy: 60, Neutral: 40, Sad: 40 },
+    gi: { individual: 100, group: 40 },
+    byHour: [{ hour: "09", Happy: 7 }, { hour: "12", Happy: 70 }, { hour: "15", Happy: 14 }, { hour: "18", Happy: 49 }],
+  };
+  const prev = { total: 200, emotion: { Happy: 40, Sad: 60 } };
+  const out = buildInsights(summary, prev, { compareLabel: "the previous 7 days", returning: 12 });
+
+  it("speaks plainly: clock times, per-day figures, comparisons", () => {
+    expect(out).toContain("Your busiest time was 12–1 pm, with about 10 visitors a day. Make sure you have enough staff on then.");
+    expect(out).toContain("It was quietest at 9–10 am (about 1 a day), a good time for restocking or breaks.");
+    expect(out).toContain("You had 30% fewer visitors than the previous 7 days.");
+    expect(out).toContain("Most visitors were aged 20–30, and slightly more women than men came in.");
+    expect(out).toContain("43% of people looked happy, better than the previous 7 days.");
+    expect(out).toContain("12 people came back later the same day.");
+  });
+  it("never uses chart or analyst words", () => {
+    expect(out.join(" ")).not.toMatch(/reading|sentiment|skew|distribution|demographic|\b\d{2}:00\b/i);
   });
   it("returns nothing without data", () => {
     expect(buildInsights({ total: 0 })).toEqual([]);
   });
 });
 
+describe("hourSpan / ageLabel", () => {
+  it("formats clock times like a person would", () => {
+    expect(hourSpan("12")).toBe("12–1 pm");
+    expect(hourSpan("09")).toBe("9–10 am");
+    expect(hourSpan("11")).toBe("11 am–12 pm");
+    expect(hourSpan("23")).toBe("11 pm–12 am");
+  });
+  it("turns age buckets into words", () => {
+    expect(ageLabel("(20-30)")).toBe("20–30");
+    expect(ageLabel("(0-10)")).toBe("under 10");
+    expect(ageLabel("(60-80)")).toBe("over 60");
+  });
+});
+
 describe("detectAnomalies", () => {
-  it("flags a footfall spike against the baseline", () => {
+  it("flags a busy spike in plain words", () => {
     const byHour = [
       { hour: "09", Happy: 5 }, { hour: "10", Happy: 5 }, { hour: "11", Happy: 5 },
       { hour: "12", Happy: 5 }, { hour: "13", Happy: 100 },
     ];
     const out = detectAnomalies(byHour);
-    expect(out.some((s) => /spiked around 13/.test(s))).toBe(true);
+    expect(out.some((s) => /Unusually busy at 1–2 pm: 100 visitors/.test(s))).toBe(true);
   });
   it("returns nothing with too little data", () => {
     expect(detectAnomalies([{ hour: "09", Happy: 1 }])).toEqual([]);
@@ -142,5 +163,25 @@ describe("emotionShares", () => {
     expect(emotionShares({ Sad: 1, Happy: 3 })).toEqual([
       { name: "Happy", value: 3, pct: 75 }, { name: "Sad", value: 1, pct: 25 },
     ]);
+  });
+});
+
+describe("visitorChange", () => {
+  it("today: compares with the same weekday last week up to the same hour", () => {
+    const c = visitorChange({
+      preset: "today", summary: { total: 30 }, compareWeekday: "Thursday", nowHour: 11,
+      hourlyCmp: { hours: [{ hour: "09", count: 10 }, { hour: "11", count: 30 }, { hour: "18", count: 500 }], days: 1 },
+    });
+    expect(c).toEqual({ pct: -25, label: "the same time last Thursday", perDay: false });   // 30 vs 40, not vs 540
+  });
+  it("multi-day: compares averages per complete day", () => {
+    const c = visitorChange({
+      preset: "7d", prev: { total: 700, days: 7 },
+      hourly: { hours: [{ hour: "12", count: 660 }], days: 6 },                             // 110/day vs 100/day
+    });
+    expect(c).toEqual({ pct: 10, label: "the previous 7 days", perDay: true });
+  });
+  it("is null without a baseline", () => {
+    expect(visitorChange({ preset: "7d", prev: null, hourly: { hours: [], days: 0 } })).toBeNull();
   });
 });

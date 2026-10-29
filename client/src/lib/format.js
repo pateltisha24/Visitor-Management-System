@@ -78,8 +78,33 @@ function stats(nums) {
   return { mean, std: Math.sqrt(variance) };
 }
 
+// ---- Plain-language wording (takeaways, anomalies) ----
+// Written for a shop owner, not an analyst: no chart words ("readings",
+// "sentiment", "skew"), clock times like "12–1 pm", and a suggestion where
+// there's an obvious one.
+
+const ampm = (h) => (h % 24 < 12 ? "am" : "pm");
+const clock = (h) => { const n = h % 12; return n === 0 ? 12 : n; };
+// "12" -> "12–1 pm", "11" -> "11 am–12 pm", "09" -> "9–10 am"
+export function hourSpan(hour) {
+  const h = Number(hour), next = h + 1;
+  return ampm(h) === ampm(next)
+    ? `${clock(h)}–${clock(next)} ${ampm(next)}`
+    : `${clock(h)} ${ampm(h)}–${clock(next)} ${ampm(next)}`;
+}
+
+// "(20-30)" -> "20–30", "(0-10)" -> "under 10", "(60-80)" -> "over 60"
+export function ageLabel(bucket = "") {
+  const [lo, hi] = bucket.replace(/[()]/g, "").split("-").map(Number);
+  if (lo === 0) return `under ${hi}`;
+  if (hi >= 80) return `over ${lo}`;
+  return `${lo}–${hi}`;
+}
+
+const about = (n) => (n >= 10 ? Math.round(n) : Math.round(n * 10) / 10);
+
 // Flag hours that deviate from the day's own baseline (z-score > 2). Returns
-// short warning strings — a lightweight, explainable anomaly detector.
+// short plain-language warnings — a lightweight, explainable anomaly detector.
 export function detectAnomalies(byHour = []) {
   const out = [];
   if (byHour.length < 4) return out; // not enough signal
@@ -94,11 +119,11 @@ export function detectAnomalies(byHour = []) {
     const zSpike = tStd > 0 && (h.total - tMean) / tStd > 2;
     const doubling = tMean > 0 && h.total >= 2 * tMean && h.total - tMean >= 10;
     if (zSpike || doubling) {
-      out.push(`Footfall spiked around ${h.hour}:00 (${h.total} vs. ~${Math.round(tMean)} typical).`);
+      out.push(`Unusually busy at ${hourSpan(h.hour)}: ${h.total} visitors, against about ${Math.round(tMean)} in a typical hour. Check you had enough staff on.`);
     }
   }
 
-  // Negative-sentiment share per hour.
+  // Share of unhappy-looking faces per hour.
   const negShares = byHour.map((h) => {
     const total = Object.entries(h).reduce((a, [k, v]) => (k === "hour" ? a : a + v), 0);
     const neg = NEGATIVE.reduce((a, e) => a + (h[e] || 0), 0);
@@ -110,42 +135,107 @@ export function detectAnomalies(byHour = []) {
     const zHigh = nStd > 0 && (n.share - nMean) / nStd > 2;
     const doubling = nMean > 0 && n.share >= 2 * nMean && n.share >= 0.3;
     if (zHigh || doubling) {
-      out.push(`Negative sentiment unusually high around ${n.hour}:00 (${Math.round(n.share * 100)}%).`);
+      out.push(`More people than usual looked unhappy at ${hourSpan(n.hour)} (${Math.round(n.share * 100)}%). Worth checking what happened then, e.g. queues or waiting times.`);
     }
   }
   return out;
 }
 
-export function buildInsights(summary, prevSummary) {
+// Like-for-like visitor change, so a day still in progress isn't compared with
+// complete ones:
+//   today:     today so far vs the same weekday last week up to the same hour
+//   multi-day: average per complete day vs the previous period's average
+// Returns {pct, label} or null.
+export function visitorChange({ preset, summary, prev, hourly, hourlyCmp, compareWeekday, nowHour = new Date().getHours() }) {
+  const sum = (series, maxHour = 99) => (series?.hours || []).filter((h) => Number(h.hour) <= maxHour).reduce((a, h) => a + h.count, 0);
+  let current, baseline, label;
+  if (preset === "today") {
+    if (!hourlyCmp) return null;
+    current = summary?.total || 0;
+    baseline = sum(hourlyCmp, nowHour);
+    label = `the same time last ${compareWeekday}`;
+  } else {
+    if (!prev?.total || !hourly?.days) return null;
+    current = sum(hourly) / hourly.days;
+    baseline = prev.total / Math.max(1, prev.days || 1);
+    label = { "7d": "the previous 7 days", "30d": "the previous 30 days" }[preset] || "the previous period";
+  }
+  if (!baseline) return null;
+  return { pct: Math.round(((current - baseline) / baseline) * 100), label, perDay: preset !== "today" };
+}
+
+// Plain-language takeaways for the current view.
+//   context.compareLabel:  what prevSummary covers, e.g. "yesterday"
+//   context.visitorChange: like-for-like change from visitorChange() (optional)
+//   context.returning:     people who came back later the same day (optional)
+export function buildInsights(summary, prevSummary, context = {}) {
   if (!summary || !summary.total) return [];
   const out = [];
-  const hours = hourTotals(summary.byHour);
+  const days = Math.max(1, summary.days || 1);
+  const perDay = days > 1 ? " a day" : "";
+  const hours = hourTotals(summary.byHour).filter((h) => h.total > 0);
+  const compare = context.compareLabel || "the previous period";
 
-  const busiest = hours.reduce((a, b) => (b.total > (a?.total || 0) ? b : a), null);
-  if (busiest) out.push(`Busiest around ${busiest.hour}:00 with ${busiest.total} readings.`);
-
-  const happiest = hours.reduce((a, b) => (b.happy > (a?.happy || 0) ? b : a), null);
-  if (happiest && happiest.happy) out.push(`Happiest stretch was ${happiest.hour}:00.`);
-
-  const topAge = (summary.age || []).reduce((a, b) => (b.count > (a?.count || 0) ? b : a), null);
-  const female = summary.gender?.Female || 0, male = summary.gender?.Male || 0;
-  const lean = female === male ? "an even gender split" : `a ${female > male ? "female" : "male"} majority`;
-  if (topAge) out.push(`Visitors skew ${topAge.age} with ${lean}.`);
-
-  const pos = positivityIndex(summary.emotion);
-  if (prevSummary) {
-    const prevPos = positivityIndex(prevSummary.emotion);
-    const diff = pos - prevPos;
-    out.push(`Positive sentiment at ${pos}% (${diff >= 0 ? "up" : "down"} ${Math.abs(diff)} pts vs. previous period).`);
-  } else {
-    out.push(`Positive sentiment at ${pos}%.`);
+  // When: busiest and quietest times.
+  const sorted = [...hours].sort((a, b) => b.total - a.total);
+  if (sorted.length) {
+    const top = sorted[0];
+    out.push(`Your busiest time was ${hourSpan(top.hour)}, with about ${about(top.total / days)} visitors${perDay}. Make sure you have enough staff on then.`);
+  }
+  // Quietest *open* hour: ignore hours with under 10% of the peak (stray
+  // detections before opening or after closing, e.g. cleaning staff).
+  const open = sorted.filter((h) => h.total >= sorted[0]?.total * 0.1);
+  if (open.length >= 4) {
+    const low = open[open.length - 1];
+    out.push(`It was quietest at ${hourSpan(low.hour)} (about ${about(low.total / days)}${perDay}), a good time for restocking or breaks.`);
   }
 
+  // How many, compared with before (like-for-like when available).
+  const vc = context.visitorChange;
+  if (vc) {
+    const what = vc.perDay ? "visitors a day" : "visitors";
+    out.push(vc.pct === 0
+      ? `You had about the same number of ${what} as ${vc.label}.`
+      : `You had ${Math.abs(vc.pct)}% ${vc.pct > 0 ? "more" : "fewer"} ${what} than ${vc.label}.`);
+  } else if (prevSummary?.total) {
+    const change = Math.round(((summary.total - prevSummary.total) / prevSummary.total) * 100);
+    out.push(change === 0
+      ? `You had the same number of visitors as ${compare}.`
+      : `You had ${Math.abs(change)}% ${change > 0 ? "more" : "fewer"} visitors than ${compare}.`);
+  }
+
+  // Who.
+  const topAge = (summary.age || []).reduce((a, b) => (b.count > (a?.count || 0) ? b : a), null);
+  const female = summary.gender?.Female || 0, male = summary.gender?.Male || 0;
+  const gap = Math.abs(female - male) / Math.max(1, female + male) * 100;
+  const more = female > male ? "women than men" : "men than women";
+  const genderText = gap < 4 ? "about as many women as men came in"
+    : gap < 15 ? `slightly more ${more} came in` : `many more ${more} came in`;
+  if (topAge) out.push(`Most visitors were aged ${ageLabel(topAge.age)}, and ${genderText}.`);
+
+  // How they seemed.
+  const pos = positivityIndex(summary.emotion);
+  if (prevSummary?.total) {
+    const diff = pos - positivityIndex(prevSummary.emotion);
+    const trend = Math.abs(diff) < 3 ? `about the same as ${compare}` : `${diff > 0 ? "better" : "worse"} than ${compare}`;
+    out.push(`${pos}% of people looked happy, ${trend}.`);
+  } else {
+    out.push(`${pos}% of people looked happy.`);
+  }
+
+  // Together or alone.
   const g = summary.gi || {};
   const gtotal = (g.individual || 0) + (g.group || 0);
   if (gtotal) {
     const groupPct = Math.round(((g.group || 0) / gtotal) * 100);
-    out.push(`${groupPct}% arrived in groups, the rest solo.`);
+    out.push(groupPct >= 40
+      ? `Lots of people came with others (${groupPct}%); room for groups to browse together helps.`
+      : `Most people came on their own; ${groupPct}% came with others.`);
+  }
+
+  // Loyalty signal (same-day returns only).
+  if (context.returning) {
+    out.push(`${context.returning} ${context.returning === 1 ? "person" : "people"} came back later the same day.`);
   }
   return out;
 }

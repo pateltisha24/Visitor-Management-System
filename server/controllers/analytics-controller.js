@@ -1,4 +1,5 @@
 const Client1 = require("../models/client1");
+const ReturnVisit = require("../models/return-visit");
 
 // Build a Mongo filter from query params.
 //   ?date=YYYY-MM-DD                 -> single day
@@ -28,6 +29,13 @@ function buildFilter(query) {
     // Seeded demo data is hidden unless explicitly requested via ?sample=true.
     filter.sample = query.sample === "true" ? true : { $ne: true };
     return filter;
+}
+
+// Return visits carry no attributes, so only the date, camera, "since" and
+// sample filters apply to them.
+function returnFilter(query) {
+    const { gender, emotion, gi, age, ...rest } = query;   // eslint-disable-line no-unused-vars
+    return buildFilter(rest);
 }
 
 // Raw rows (kept for backward compatibility, and used for CSV export).
@@ -76,6 +84,8 @@ const getSummary = async (req, res) => {
             giAgg,
             hourAgg,
             ageEmotionAgg,
+            dates,
+            returning,
         ] = await Promise.all([
             Client1.countDocuments(match),
             Client1.aggregate([{ $match: match }, { $group: { _id: "$Gender", count: { $sum: 1 } } }]),
@@ -94,6 +104,8 @@ const getSummary = async (req, res) => {
                 { $match: match },
                 { $group: { _id: { age: "$Age", emotion: "$Emotion" }, count: { $sum: 1 } } },
             ]),
+            Client1.distinct("Date", match),
+            ReturnVisit.countDocuments(returnFilter(req.query)),
         ]);
 
         const toMap = (arr) => arr.reduce((acc, { _id, count }) => {
@@ -132,6 +144,8 @@ const getSummary = async (req, res) => {
             gi: toMap(giAgg),
             byHour,
             ageEmotionMatrix,
+            days: dates.filter(Boolean).length,   // distinct days with visitors (for per-day figures)
+            returning,                            // same-day return visits (not in `total`)
         });
     } catch (err) {
         res.status(500).json({ message: err.message });
@@ -208,4 +222,4 @@ const getWeekly = async (req, res) => {
     }
 };
 
-module.exports = { getData, getRecent, getDates, getSummary, getHourly, getDaily, getWeekly, buildFilter, weeklyGrid };
+module.exports = { getData, getRecent, getDates, getSummary, getHourly, getDaily, getWeekly, buildFilter, returnFilter, weeklyGrid };
