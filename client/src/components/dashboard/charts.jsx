@@ -1,11 +1,12 @@
-import { useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { FiChevronLeft, FiChevronRight } from "react-icons/fi";
 import {
-  ResponsiveContainer, ComposedChart, BarChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip,
+  ResponsiveContainer, ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip,
   AreaChart, Area, Legend, Cell, ReferenceLine,
 } from "recharts";
 import { cn } from "../../lib/utils";
 import { ChartCard, ChartBox, CustomTooltip, Delta, num } from "./chartParts";
-import { hourSpan, ageLabel } from "../../lib/format";
+import { hourSpan, ageLabel, timeline, ZOOM_LEVELS } from "../../lib/format";
 import { emotionColor, axisProps } from "./theme";
 
 const hourLabel = (h) => `${h}:00`;
@@ -23,25 +24,24 @@ export const Tabs = ({ tabs, value, onChange }) => (
   </div>
 );
 
-const TRAFFIC_TABS = [
-  { key: "hour", label: "By hour" }, { key: "day", label: "By day" },
-  { key: "month", label: "By month" }, { key: "week", label: "Busy times" },
-];
+const TRAFFIC_TABS = [{ key: "hour", label: "By hour" }, { key: "time", label: "Over time" }, { key: "week", label: "Busy times" }];
 
-// One card for visitor traffic: today per hour (the default, the staffing
-// question), the trend per day and per month, and the regular weekly pattern.
-//   footfall: {data, description, currentLabel, compareLabel}
-//   daily:    {data, description}
-//   monthly:  {data, description}
+// One card for visitor traffic: the day per hour (the default, the staffing
+// question), a zoomable week / month / year view, and the regular weekly pattern.
+//   footfall: {data, description, currentLabel, compareLabel, expectedLabel, nowHour}
+//   overTime: {history}   day, today, onPickDay: the dashboard's day
 //   weekly:   {matrix, description}
-export const TrafficCard = ({ footfall, daily, monthly, weekly }) => {
+export const TrafficCard = ({ footfall, overTime, weekly, day, today, onPickDay }) => {
   const [tab, setTab] = useState("hour");
-  const description = { hour: footfall.description, day: daily.description, month: monthly.description, week: weekly.description }[tab];
+  const description = {
+    hour: footfall.description,
+    time: null,   // the zoom controls take that line
+    week: weekly.description,
+  }[tab];
   return (
     <ChartCard title="Traffic" description={description} action={<Tabs tabs={TRAFFIC_TABS} value={tab} onChange={setTab} />}>
       {tab === "hour" && <FootfallView {...footfall} />}
-      {tab === "day" && <DailyView data={daily.data} />}
-      {tab === "month" && <MonthlyView data={monthly.data} />}
+      {tab === "time" && <OverTimeView history={overTime.history} day={day} today={today} onPickDay={onPickDay} />}
       {tab === "week" && <BusyTimesView matrix={weekly.matrix} />}
     </ChartCard>
   );
@@ -81,49 +81,145 @@ const FootfallView = ({ data, currentLabel, compareLabel, expectedLabel, nowHour
   ) : <Empty>No visitors in this period yet.</Empty>
 );
 
-// Visitors per day, today's bar highlighted, with the period's daily average.
-const DailyView = ({ data }) => {
-  const days = data.filter((d) => !d.isToday);
-  const avg = days.length ? days.reduce((a, d) => a + d.count, 0) / days.length : 0;
-  return data.some((d) => d.count) ? (
-    <ChartBox>
-      <ResponsiveContainer width="100%" height="100%">
-        <BarChart data={data} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
-          <CartesianGrid vertical={false} stroke="hsl(var(--border))" strokeDasharray="3 3" />
-          <XAxis dataKey="label" {...axisProps} interval="preserveStartEnd" minTickGap={16} />
-          <YAxis {...axisProps} allowDecimals={false} />
-          <Tooltip content={<CustomTooltip />} cursor={{ fill: "hsl(var(--muted))", opacity: 0.5 }} />
-          {avg > 0 && (
-            <ReferenceLine y={avg} stroke="hsl(var(--muted-foreground))" strokeDasharray="4 4"
-                           label={{ value: `avg ${Math.round(avg)}`, position: "insideTopRight", fill: "hsl(var(--muted-foreground))", fontSize: 11 }} />
-          )}
-          <Bar dataKey="count" name="Visitors" radius={[4, 4, 0, 0]} maxBarSize={28}>
-            {data.map((d) => <Cell key={d.date} fill={d.isToday ? "hsl(var(--primary))" : "hsl(var(--primary) / 0.45)"} />)}
-          </Bar>
-        </BarChart>
-      </ResponsiveContainer>
-    </ChartBox>
-  ) : <Empty>No visitors in this period yet.</Empty>;
+// ---- Over time: week / month / year as one zoomable bar chart ----
+const ZOOM_NAMES = { week: "Week", month: "Month", year: "Year" };
+// Full class names so Tailwind keeps them (motion-safe: no animation for reduced motion).
+const MOTION = {
+  "zoom-in": "motion-safe:animate-zoom-in", "zoom-out": "motion-safe:animate-zoom-out",
+  "slide-left": "motion-safe:animate-slide-left", "slide-right": "motion-safe:animate-slide-right",
+};
+const navButton = "grid h-7 w-7 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground disabled:opacity-30 disabled:hover:bg-transparent";
+
+const OverTimeView = ({ history, day, today, onPickDay }) => {
+  const [level, setLevel] = useState("month");
+  const [anchor, setAnchor] = useState(day);
+  const [motion, setMotion] = useState(null);   // {anim, origin} for the view that just appeared
+  const [viewId, setViewId] = useState(0);      // re-keys the chart so the animation replays
+  const box = useRef(null);
+
+  // Picking a day elsewhere (calendar, a week bar) brings the view to it.
+  useEffect(() => { setAnchor(day); }, [day]);
+
+  const t = useMemo(() => timeline(history, level, anchor, { today, selected: day }), [history, level, anchor, today, day]);
+
+  const go = (nextLevel, nextAnchor, anim, origin = "50% 100%") => {
+    setMotion({ anim, origin }); setLevel(nextLevel); setAnchor(nextAnchor); setViewId((v) => v + 1);
+  };
+  const zoomTo = (target) => {
+    const from = ZOOM_LEVELS.indexOf(level), to = ZOOM_LEVELS.indexOf(target);
+    if (to < 0 || to === from) return;
+    go(target, anchor, to > from ? "zoom-out" : "zoom-in");
+  };
+  // +1 zooms out (towards a year), -1 zooms in (towards a week).
+  const zoomBy = (step) => zoomTo(ZOOM_LEVELS[ZOOM_LEVELS.indexOf(level) + step]);
+  // Clicking a bar zooms into it, growing the new view out of that bar; in the
+  // week view it picks that day for the whole dashboard.
+  const onBar = (index) => {
+    const bar = t.bars[index];
+    if (!bar?.zoomTo) return;
+    if (level === "week") { onPickDay?.(bar.zoomTo); return; }
+    go(level === "year" ? "month" : "week", bar.zoomTo, "zoom-in", `${((index + 0.5) / t.bars.length) * 100}% 100%`);
+  };
+
+  // Scroll or pinch over the chart: one gesture moves one level. A trackpad
+  // keeps sending scroll events after a flick, so wait for a pause before the
+  // next one. On narrow screens plain scrolling stays with the page (pinch still zooms).
+  const zoomRef = useRef(zoomBy);
+  useEffect(() => { zoomRef.current = zoomBy; });
+  useEffect(() => {
+    const el = box.current;
+    if (!el) return undefined;
+    const wide = window.matchMedia("(min-width: 1280px)");
+    let acc = 0, locked = false, last = 0;
+    const onWheel = (e) => {
+      if (!e.ctrlKey && !wide.matches) return;
+      if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
+      e.preventDefault();
+      const now = e.timeStamp;
+      if (locked && now - last < 250) { last = now; return; }
+      locked = false; last = now;
+      acc += e.deltaY;
+      if (Math.abs(acc) < (e.ctrlKey ? 6 : 40)) return;
+      zoomRef.current(acc > 0 ? 1 : -1);
+      acc = 0; locked = true;
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, []);
+
+  const labels = Object.fromEntries(t.bars.map((b) => [b.key, b.label]));
+  const tips = Object.fromEntries(t.bars.map((b) => [b.key, b.tooltip]));
+  const hasData = t.bars.some((b) => b.count);
+
+  return (
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
+        <div className="flex items-center gap-1">
+          <button className={navButton} onClick={() => t.prev && go(level, t.prev, "slide-right")} disabled={!t.prev}
+                  aria-label={`Previous ${ZOOM_NAMES[level].toLowerCase()}`}>
+            <FiChevronLeft size={15} />
+          </button>
+          <span className="min-w-[8.5rem] text-center text-sm font-medium">{t.title}</span>
+          <button className={navButton} onClick={() => t.next && go(level, t.next, "slide-left")} disabled={!t.next}
+                  aria-label={`Next ${ZOOM_NAMES[level].toLowerCase()}`}>
+            <FiChevronRight size={15} />
+          </button>
+        </div>
+        <ZoomSlider level={level} onChange={zoomTo} />
+      </div>
+      <div ref={box} className="relative mt-1 flex min-h-0 flex-1 flex-col overflow-hidden"
+           title={level === "week" ? "Click a day to see it across the dashboard; scroll or pinch to zoom out" : "Click a bar to zoom in; scroll or pinch to zoom"}>
+        <div key={viewId} className={cn("flex min-h-0 flex-1 flex-col", motion && MOTION[motion.anim])} style={{ transformOrigin: motion?.origin }}>
+          {hasData || level === "week" ? (
+            <ChartBox>
+              <ResponsiveContainer width="100%" height="100%">
+                <ComposedChart data={t.bars} margin={{ top: 8, right: 8, left: -8, bottom: 0 }}>
+                  <CartesianGrid vertical={false} stroke="hsl(var(--border))" strokeDasharray="3 3" />
+                  <XAxis dataKey="key" {...axisProps} tickFormatter={(k) => labels[k]} interval="preserveStartEnd" minTickGap={14} />
+                  <YAxis {...axisProps} allowDecimals={false} tickFormatter={num} />
+                  <Tooltip content={<CustomTooltip labelFormatter={(k) => tips[k]} />} cursor={{ fill: "hsl(var(--muted))", opacity: 0.5 }} />
+                  {level === "month" && t.avg > 0 && (
+                    <ReferenceLine y={t.avg} stroke="hsl(var(--muted-foreground))" strokeDasharray="4 4"
+                                   label={{ value: `avg ${Math.round(t.avg)}`, position: "insideTopRight", fill: "hsl(var(--muted-foreground))", fontSize: 11 }} />
+                  )}
+                  <Bar dataKey="count" name="Visitors" fill="hsl(var(--primary) / 0.45)" radius={[4, 4, 0, 0]} maxBarSize={level === "month" ? 28 : 56}
+                       onClick={(_, index) => onBar(index)}>
+                    {t.bars.map((b) => (
+                      <Cell key={b.key} style={{ cursor: b.zoomTo ? "pointer" : "default" }}
+                            fill={b.highlight ? "hsl(var(--primary))" : "hsl(var(--primary) / 0.45)"} />
+                    ))}
+                  </Bar>
+                  {level === "week" && (
+                    <Line dataKey="compare" name="The week before" type="monotone" stroke="hsl(var(--muted-foreground))"
+                          strokeWidth={2} strokeDasharray="5 4" dot={false} />
+                  )}
+                  {level === "week" && <Legend iconType="circle" wrapperStyle={{ fontSize: 12 }} formatter={legendText} />}
+                </ComposedChart>
+              </ResponsiveContainer>
+            </ChartBox>
+          ) : <Empty>No visitors in this period.</Empty>}
+        </div>
+      </div>
+    </div>
+  );
 };
 
-// Visitors per month, the chosen day's month highlighted; the month in progress says "so far".
-const MonthlyView = ({ data }) => (
-  data.length ? (
-    <ChartBox>
-      <ResponsiveContainer width="100%" height="100%">
-        <BarChart data={data} margin={{ top: 8, right: 8, left: -8, bottom: 0 }}>
-          <CartesianGrid vertical={false} stroke="hsl(var(--border))" strokeDasharray="3 3" />
-          <XAxis dataKey="label" {...axisProps} />
-          <YAxis {...axisProps} allowDecimals={false} tickFormatter={num} />
-          <Tooltip content={<CustomTooltip labelFormatter={(l) => (data.find((d) => d.label === l)?.inProgress ? `${l} (so far)` : l)} />}
-                   cursor={{ fill: "hsl(var(--muted))", opacity: 0.5 }} />
-          <Bar dataKey="count" name="Visitors" radius={[4, 4, 0, 0]} maxBarSize={48}>
-            {data.map((d) => <Cell key={d.month} fill={d.isCurrent ? "hsl(var(--primary))" : "hsl(var(--primary) / 0.45)"} />)}
-          </Bar>
-        </BarChart>
-      </ResponsiveContainer>
-    </ChartBox>
-  ) : <Empty>No visitors yet.</Empty>
+// Three-stop zoom slider: Week, Month, Year (the labels are clickable too).
+const ZoomSlider = ({ level, onChange }) => (
+  <div className="w-44">
+    <input type="range" min={0} max={ZOOM_LEVELS.length - 1} step={1} value={ZOOM_LEVELS.indexOf(level)}
+           onChange={(e) => onChange(ZOOM_LEVELS[Number(e.target.value)])}
+           aria-label="Zoom" aria-valuetext={ZOOM_NAMES[level]}
+           className="h-1.5 w-full cursor-pointer accent-[hsl(var(--primary))]" />
+    <div className="-mt-0.5 flex justify-between text-[11px]">
+      {ZOOM_LEVELS.map((l) => (
+        <button key={l} onClick={() => onChange(l)}
+                className={cn("transition-colors hover:text-foreground", l === level ? "font-semibold text-foreground" : "text-muted-foreground")}>
+          {ZOOM_NAMES[l]}
+        </button>
+      ))}
+    </div>
+  </div>
 );
 
 // Average visitors by weekday x hour: where the regular peaks are.

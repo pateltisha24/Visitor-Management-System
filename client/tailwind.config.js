@@ -64,10 +64,32 @@ export default {
           from: { transform: "translateX(0)" },
           to: { transform: "translateX(-50%)" },
         },
+        // Over time chart: zooming into a bar grows the new view out of it;
+        // zooming out shrinks the old one away.
+        "zoom-in": {
+          from: { opacity: "0", transform: "scale(0.35)" },
+          to: { opacity: "1", transform: "scale(1)" },
+        },
+        "zoom-out": {
+          from: { opacity: "0", transform: "scale(1.6)" },
+          to: { opacity: "1", transform: "scale(1)" },
+        },
+        "slide-left": {
+          from: { opacity: "0", transform: "translateX(24px)" },
+          to: { opacity: "1", transform: "translateX(0)" },
+        },
+        "slide-right": {
+          from: { opacity: "0", transform: "translateX(-24px)" },
+          to: { opacity: "1", transform: "translateX(0)" },
+        },
       },
       animation: {
         "fade-up": "fade-up 0.6s cubic-bezier(0.22,1,0.36,1) both",
         marquee: "marquee 28s linear infinite",
+        "zoom-in": "zoom-in 0.45s cubic-bezier(0.22,1,0.36,1) both",
+        "zoom-out": "zoom-out 0.45s cubic-bezier(0.22,1,0.36,1) both",
+        "slide-left": "slide-left 0.3s cubic-bezier(0.22,1,0.36,1) both",
+        "slide-right": "slide-right 0.3s cubic-bezier(0.22,1,0.36,1) both",
       },
       boxShadow: {
         soft: "0 1px 2px rgba(24,20,16,0.04), 0 8px 24px -12px rgba(24,20,16,0.12)",

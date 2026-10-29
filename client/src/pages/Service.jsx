@@ -12,7 +12,7 @@ import { Button } from "../components/ui/button";
 import { Card } from "../components/ui/card";
 import { cn } from "../lib/utils";
 import {
-  lastDays, downloadCSV, fmt, addDays, parseDate, dailySeries, monthlySeries,
+  lastDays, downloadCSV, fmt, addDays, parseDate, dailySeries, monthlySeries, monthsFromDaily,
   footfallSeries, typicalDay, weeklyMatrix, visitorChange, detectAnomalies, personLabel,
 } from "../lib/format";
 
@@ -99,20 +99,21 @@ export const Service = () => {
       const weekEarlier = fmt(addDays(date, -7));
       const weekEarlierR = fresh ? null : { from: weekEarlier, to: weekEarlier };
       const dailyR = lastDays(30, date);
-      const monthlyR = { from: fmt(new Date(date.getFullYear(), date.getMonth() - 11, 1)), to: day };
+      // Day-by-day history for "Over time": two years up to today, so zooming
+      // and moving between weeks, months and years needs no extra requests.
+      const historyR = { from: fmt(new Date(date.getFullYear(), date.getMonth() - 23, 1)), to: today };
       // The weekly pattern averages the 4 complete weeks before the day.
       const weeklyR = { from: fmt(addDays(date, -28)), to: fmt(addDays(date, -1)) };
       // A past day is complete; today only up to now.
       const nowHour = isToday ? new Date().getHours() : 23;
       const get = (path, r, extra) => api.get(`/api/analytics/${path}${queryString(r, extra)}`).then((res) => res.data);
-      const [sum, recentRows, prevSum, hourly, hourlyCmp, daily, monthly, weekly] = await Promise.all([
+      const [sum, recentRows, prevSum, hourly, hourlyCmp, history, weekly] = await Promise.all([
         get("summary", range),
         get("recent", range, { limit: 10 }),
         weekEarlierR ? get("summary", weekEarlierR) : null,
         get("hourly", range),
         weekEarlierR ? get("hourly", weekEarlierR) : null,
-        get("daily", dailyR),
-        get("monthly", monthlyR),
+        get("daily", historyR),
         get("weekly", weeklyR),
       ]);
       if (myId !== reqId.current) return; // a newer request superseded this one
@@ -135,14 +136,10 @@ export const Service = () => {
           expectedLabel: `Typical ${weekday}`,
           nowHour: isToday ? nowHour : null,
         },
-        daily: {
-          data: dailySeries(daily, dailyR.from, dailyR.to, day),
-          description: `Visitors per day over the 30 days to ${isToday ? "today" : shortDate}, which is highlighted.`,
-        },
-        monthly: {
-          data: monthlySeries(monthly, 12, date),
-          description: isToday ? "Visitors per month; this month so far is highlighted." : "Visitors per month; the chosen day's month is highlighted.",
-        },
+        overTime: { history: history || [] },
+        // Also what Ask is told about the days and months around the day.
+        daily: { data: dailySeries(history, dailyR.from, dailyR.to, day) },
+        monthly: { data: monthlySeries(monthsFromDaily(history), 12, date) },
         weekly: {
           matrix: weeklyMatrix(weekly?.cells || []),
           description: `Your regular week over the 4 weeks before ${isToday ? "today" : shortDate} — darker means busier.`,
@@ -154,7 +151,7 @@ export const Service = () => {
     } finally {
       if (myId === reqId.current) setLoading(false);
     }
-  }, [isOffline, queryString, since, sample, day, isToday, weekday]);
+  }, [isOffline, queryString, since, sample, day, today, isToday, weekday]);
 
   useEffect(() => { setLoading(true); fetchAll(); }, [fetchAll]);
 
@@ -296,7 +293,7 @@ export const Service = () => {
               <button onClick={clearFresh} title="Show all readings again" className="hover:text-foreground"><FiX /></button>
             </span>
           )}
-          {hasData && !loading && <div className="ml-auto"><WorthALook items={detectAnomalies(summary.byHour || [])} /></div>}
+          {hasData && <div className="ml-auto"><WorthALook items={detectAnomalies(summary.byHour || [])} /></div>}
         </div>
 
         {/* Live camera view + activity (needs the realtime server) */}
@@ -308,10 +305,15 @@ export const Service = () => {
 
         {/* Body */}
         <div className="mt-4 min-h-0 flex-1">
-          {loading ? (
+          {/* The placeholder only before the first load: later reloads (another day,
+              a camera filter) keep the cards, and their tabs and zoom, on screen. */}
+          {loading && !summary ? (
             <SkeletonGrid />
           ) : hasData ? (
-            <DashboardView summary={summary} prevSummary={prev} recent={recent} trends={trends} context={{ compareLabel, compareShort, visitorChange: change, day, isToday }} />
+            <DashboardView summary={summary} prevSummary={prev} recent={recent} trends={trends} context={{
+              compareLabel, compareShort, visitorChange: change, day, today, isToday,
+              onPickDay: (d) => setPicked(d === today ? null : d),
+            }} />
           ) : (
             <EmptyState error={error} fresh={!!since && !sample && isToday} onSample={() => setSample(true)} />
           )}

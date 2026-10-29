@@ -260,6 +260,113 @@ export function monthlySeries(rows = [], n = 12, now = new Date()) {
   });
 }
 
+// ---- Over time: one bar chart at three zoom levels ----
+// week = Mon–Sun with the week before as a line; month = its days; year = the
+// 12 months up to it. Built from one daily history, so zooming needs no fetch.
+export const ZOOM_LEVELS = ["week", "month", "year"];
+
+const mondayOf = (d) => addDays(d, -((d.getDay() + 6) % 7));
+const monthKey = (d) => fmt(d).slice(0, 7);
+const monthStart = (key) => parseDate(`${key}-01`);
+
+// [{date, count}] -> [{month, count, days}] (days = days with visitors).
+export function monthsFromDaily(rows = []) {
+  const out = {};
+  for (const r of rows) {
+    if (!r.count) continue;
+    const m = (out[r.date.slice(0, 7)] = out[r.date.slice(0, 7)] || { month: r.date.slice(0, 7), count: 0, days: 0 });
+    m.count += r.count; m.days += 1;
+  }
+  return Object.values(out).sort((a, b) => a.month.localeCompare(b.month));
+}
+
+//   rows: daily history; anchor: a "YYYY-MM-DD" inside the period to show;
+//   selected: the dashboard's day (highlighted); today: no bars after it.
+// Returns {bars, title, prev, next, avg}: prev/next are anchors for ‹ › (or
+// null), and each bar's `zoomTo` is the anchor for zooming into it.
+export function timeline(rows = [], level, anchor, { today = fmt(new Date()), selected = anchor } = {}) {
+  const counts = Object.fromEntries(rows.map((r) => [r.date, r.count]));
+  const first = rows.filter((r) => r.count).map((r) => r.date).sort()[0] || today;
+  const a = parseDate(anchor);
+  const shortDay = (d) => d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+
+  if (level === "year") {
+    const months = monthsFromDaily(rows);
+    const byMonth = Object.fromEntries(months.map((m) => [m.month, m]));
+    const keys = [];
+    for (let i = 11; i >= 0; i--) keys.push(monthKey(new Date(a.getFullYear(), a.getMonth() - i, 1)));
+    const shown = keys.filter((k) => k >= first.slice(0, 7));
+    const bars = shown.map((k, i) => {
+      const d = monthStart(k);
+      const inProgress = k === today.slice(0, 7);
+      return {
+        key: k,
+        label: d.toLocaleDateString(undefined, i === 0 || d.getMonth() === 0 ? { month: "short", year: "numeric" } : { month: "short" }),
+        tooltip: `${d.toLocaleDateString(undefined, { month: "long", year: "numeric" })}${inProgress ? " (so far)" : ""}`,
+        count: byMonth[k]?.count || 0,
+        highlight: k === selected.slice(0, 7),
+        zoomTo: k === selected.slice(0, 7) ? selected : fmt(d),
+      };
+    });
+    const prevAnchor = new Date(a.getFullYear(), a.getMonth() - 12, 1);
+    const nextAnchor = new Date(a.getFullYear(), a.getMonth() + 12, 1);
+    return {
+      bars,
+      title: bars.length ? `${monthStart(shown[0]).toLocaleDateString(undefined, { month: "short", year: "numeric" })} – ${monthStart(shown[shown.length - 1]).toLocaleDateString(undefined, { month: "short", year: "numeric" })}` : "",
+      prev: monthKey(prevAnchor) >= first.slice(0, 7) ? fmt(prevAnchor) : null,
+      next: monthKey(a) < today.slice(0, 7) ? (monthKey(nextAnchor) >= today.slice(0, 7) ? today : fmt(nextAnchor)) : null,
+    };
+  }
+
+  if (level === "month") {
+    const start = new Date(a.getFullYear(), a.getMonth(), 1);
+    const bars = [];
+    for (let d = start; d.getMonth() === start.getMonth() && fmt(d) <= today; d = addDays(d, 1)) {
+      const date = fmt(d);
+      bars.push({
+        key: date, label: shortDay(d),
+        tooltip: d.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" }) + (date === today ? " (so far)" : ""),
+        count: counts[date] || 0, highlight: date === selected, zoomTo: date,
+      });
+    }
+    const complete = bars.filter((b) => b.key !== today && b.count);
+    const prevStart = new Date(a.getFullYear(), a.getMonth() - 1, 1);
+    const nextStart = new Date(a.getFullYear(), a.getMonth() + 1, 1);
+    return {
+      bars,
+      title: start.toLocaleDateString(undefined, { month: "long", year: "numeric" }),
+      avg: complete.length ? complete.reduce((s, b) => s + b.count, 0) / complete.length : 0,
+      prev: monthKey(prevStart) >= first.slice(0, 7) ? fmt(prevStart) : null,
+      next: fmt(nextStart) <= today ? fmt(nextStart) : null,
+    };
+  }
+
+  // week: all seven days, so the week before's line still shows the rest of it.
+  const monday = mondayOf(a);
+  const bars = [];
+  for (let i = 0; i < 7; i++) {
+    const d = addDays(monday, i);
+    const date = fmt(d);
+    const future = date > today;
+    bars.push({
+      key: date,
+      label: `${d.toLocaleDateString(undefined, { weekday: "short" })} ${d.getDate()}`,
+      tooltip: d.toLocaleDateString(undefined, { weekday: "long", month: "short", day: "numeric" }) + (date === today ? " (so far)" : ""),
+      count: future ? null : counts[date] || 0,
+      compare: counts[fmt(addDays(d, -7))] || 0,
+      highlight: date === selected,
+      zoomTo: future ? null : date,
+    });
+  }
+  const sunday = addDays(monday, 6);
+  return {
+    bars,
+    title: `${shortDay(monday)} – ${shortDay(sunday)}`,
+    prev: fmt(addDays(monday, -1)) >= first ? fmt(addDays(monday, -7)) : null,
+    next: fmt(addDays(monday, 7)) <= today ? fmt(addDays(monday, 7)) : null,
+  };
+}
+
 // Visitors per hour as an average per day, against a comparison period.
 // Only the hours that have data in either series (and those in between).
 // With `expected` ({hour: visitors on a typical day}) and `nowHour`, the hours

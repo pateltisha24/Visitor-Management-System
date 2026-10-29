@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   lastDays, pctDelta, positivityIndex, hourTotals,
   buildInsights, detectAnomalies, fmt, parseDate, dailySeries, monthlySeries,
-  footfallSeries, typicalDay, weeklyMatrix, emotionShares, hourSpan, ageLabel, personLabel, visitorChange,
+  footfallSeries, typicalDay, weeklyMatrix, timeline, monthsFromDaily, emotionShares, hourSpan, ageLabel, personLabel, visitorChange,
 } from "./format";
 
 describe("pctDelta", () => {
@@ -189,5 +189,42 @@ describe("visitorChange", () => {
   it("is null without a baseline", () => {
     expect(visitorChange({ summary: { total: 5 }, hourlyCmp: null })).toBeNull();
     expect(visitorChange({ summary: { total: 5 }, hourlyCmp: { hours: [] }, nowHour: 9 })).toBeNull();
+  });
+});
+
+describe("timeline (Over time zoom levels)", () => {
+  // Thu 1 Oct to Thu 29 Oct 2026, 10 visitors a day; 5 a day in September.
+  const rows = [];
+  for (let d = 1; d <= 29; d++) rows.push({ date: `2026-10-${String(d).padStart(2, "0")}`, count: 10 });
+  for (let d = 1; d <= 30; d++) rows.push({ date: `2026-09-${String(d).padStart(2, "0")}`, count: 5 });
+  const opts = { today: "2026-10-29", selected: "2026-10-20" };
+
+  it("week: Monday to Sunday, the week before as a line, nothing after today", () => {
+    const t = timeline(rows, "week", "2026-10-29", opts);
+    expect(t.bars.map((b) => b.key)).toEqual(["2026-10-26", "2026-10-27", "2026-10-28", "2026-10-29", "2026-10-30", "2026-10-31", "2026-11-01"]);
+    expect(t.bars.map((b) => b.count)).toEqual([10, 10, 10, 10, null, null, null]);
+    expect(t.bars[0].compare).toBe(10);
+    expect(t.next).toBeNull();
+    expect(t.prev).toBe("2026-10-19");
+  });
+  it("month: its days up to today, the chosen day highlighted, zooming into a day", () => {
+    const t = timeline(rows, "month", "2026-10-20", opts);
+    expect(t.bars).toHaveLength(29);
+    expect(t.bars.find((b) => b.highlight).key).toBe("2026-10-20");
+    expect(t.bars[4].zoomTo).toBe("2026-10-05");
+    expect(t.avg).toBe(10);                                  // today (in progress) left out
+    expect(t.prev).toBe("2026-09-01");
+    expect(t.next).toBeNull();
+  });
+  it("year: starts at the first month with visitors; a month zooms to the chosen day if it's in it", () => {
+    const t = timeline(rows, "year", "2026-10-20", opts);
+    expect(t.bars.map((b) => [b.key, b.count])).toEqual([["2026-09", 150], ["2026-10", 290]]);
+    expect(t.bars[1].zoomTo).toBe("2026-10-20");
+    expect(t.bars[0].zoomTo).toBe("2026-09-01");
+    expect(t.prev).toBeNull();
+  });
+  it("monthsFromDaily counts the days with visitors", () => {
+    expect(monthsFromDaily([{ date: "2026-10-01", count: 3 }, { date: "2026-10-02", count: 0 }, { date: "2026-10-05", count: 2 }]))
+      .toEqual([{ month: "2026-10", count: 5, days: 2 }]);
   });
 });

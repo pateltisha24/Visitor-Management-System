@@ -182,9 +182,10 @@ export const WorthALook = ({ items }) => {
   );
 };
 
-// `trends` (optional) carries the data for the Traffic card's four views:
-//   { footfall: {data, description, currentLabel, compareLabel},
-//     daily: {data, description}, monthly: {data, description}, weekly: {matrix, description} }
+// `trends` (optional) carries the data for the Traffic card's views:
+//   { footfall: {data, description, currentLabel, compareLabel, ...},
+//     overTime: {history}, weekly: {matrix, description},
+//     daily: {data}, monthly: {data} (what Ask is told about the days and months around the day) }
 // On wide screens everything fits one page: a row of figures, then two rows of cards.
 export const DashboardView = ({ summary, prevSummary, recent = [], trends, context = {} }) => {
   const { total = 0, gender = {}, genderAge = [], emotion = {}, gi = {}, byHour = [], ageEmotionMatrix = [] } = summary;
@@ -224,7 +225,7 @@ export const DashboardView = ({ summary, prevSummary, recent = [], trends, conte
 
       {/* Traffic (the staffing question) + the written summary */}
       <div className="grid min-h-0 gap-4 xl:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
-        {trends && <TrafficCard {...trends} />}
+        {trends && <TrafficCard {...trends} day={context.day} today={context.today} onPickDay={context.onPickDay} />}
         <SummaryCard insights={insights} askContext={{ summary, prevSummary, trends, change: totalDelta, day: context.day, isToday: context.isToday }} />
       </div>
 
