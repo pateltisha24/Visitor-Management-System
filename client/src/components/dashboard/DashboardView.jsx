@@ -12,7 +12,7 @@ import { emotionColor, GENDER_COLORS, axisProps } from "./theme";
 import { ChartCard, ChartBox, CustomTooltip, Delta, num } from "./chartParts";
 import { TrafficCard, MoodCard, Tabs } from "./charts";
 import { cn } from "../../lib/utils";
-import { positivityIndex, hourTotals, buildInsights, emotionShares, hourSpan, ageLabel, fmt } from "../../lib/format";
+import { positivityIndex, hourTotals, buildInsights, emotionShares, hourSpan, ageLabel, personLabel, fmt } from "../../lib/format";
 
 // The written read of the view: instant plain-language takeaways, and Ask, where
 // the AI answers a question from the numbers on this page. Both stay mounted, so
@@ -130,7 +130,7 @@ const AskPanel = ({ askContext, className = "" }) => {
   );
 };
 
-const StatCard = ({ icon: Icon, label, value, sub, delta, deltaUnit }) => (
+const StatCard = ({ icon: Icon, label, value, sub, delta, deltaUnit, deltaNote }) => (
   <Card className="min-w-0 px-4 py-3">
     <div className="flex items-center justify-between gap-2">
       <span className="truncate text-[11px] font-medium uppercase tracking-widest text-muted-foreground">{label}</span>
@@ -139,6 +139,7 @@ const StatCard = ({ icon: Icon, label, value, sub, delta, deltaUnit }) => (
     <div className="mt-1 flex items-center gap-2">
       <span className="truncate font-mono text-xl font-semibold tracking-tight">{value}</span>
       {delta != null && <Delta value={delta} unit={deltaUnit} />}
+      {delta != null && deltaNote && <span className="truncate text-xs text-muted-foreground">{deltaNote}</span>}
     </div>
     {sub && <div className="mt-0.5 truncate text-xs text-muted-foreground" title={sub}>{sub}</div>}
   </Card>
@@ -203,19 +204,20 @@ export const DashboardView = ({ summary, prevSummary, recent = [], trends, conte
   const insights = buildInsights(summary, prevSummary, { ...context, returning });
 
   const shares = emotionShares(emotion);
+  const vsNote = context.compareShort ? `vs ${context.compareShort}` : null;
 
   return (
     <div className="grid gap-4 xl:h-full xl:min-h-[500px] xl:grid-rows-[auto_minmax(0,1.3fr)_minmax(0,1fr)]">
       {/* Key figures */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
-        <StatCard icon={FiUsers} label="Visitors" value={num(total)} delta={totalDelta}
+        <StatCard icon={FiUsers} label="Visitors" value={num(total)} delta={totalDelta} deltaNote={vsNote}
                   sub={`${num(gi.individual || 0)} on their own · ${num(gi.group || 0)} with others`} />
         <StatCard icon={FiRepeat} label="Came back" value={returning == null ? "—" : num(returning)}
                   sub={returning == null ? "same-day returns" : `later the same day · ${total ? Math.round((returning / total) * 100) : 0}% of visitors`} />
         <StatCard icon={FiPieChart} label="Women / men" value={`${femalePct} / ${malePct}%`} sub={`${num(female)} women · ${num(male)} men`} />
         <StatCard icon={FiTrendingUp} label="Top age group" value={topAge ? ageLabel(topAge.age) : "—"} sub={topAge ? `${num(topAge.count)} visitors` : "no data"} />
         <StatCard icon={FiClock} label="Peak hour" value={busiest ? hourSpan(busiest.hour) : "—"} sub={busiest ? peakSub(busiest.total, summary.days) : "no data"} />
-        <StatCard icon={FiSmile} label="Looked happy" value={`${pos}%`} delta={posDelta} deltaUnit=" pts" sub="happy or surprised" />
+        <StatCard icon={FiSmile} label="Looked happy" value={`${pos}%`} delta={posDelta} deltaUnit=" pts" deltaNote={vsNote} sub="happy or surprised" />
       </div>
 
       {/* Traffic (the staffing question) + the written summary */}
@@ -231,11 +233,11 @@ export const DashboardView = ({ summary, prevSummary, recent = [], trends, conte
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={genderAge} margin={{ top: 8, right: 8, left: -16, bottom: 0 }} barGap={4}>
                 <CartesianGrid vertical={false} stroke="hsl(var(--border))" strokeDasharray="3 3" />
-                <XAxis dataKey="age" {...axisProps} />
+                <XAxis dataKey="age" {...axisProps} tickFormatter={ageLabel} />
                 <YAxis {...axisProps} />
-                <Tooltip content={<CustomTooltip />} cursor={{ fill: "hsl(var(--muted))", opacity: 0.5 }} />
-                <Bar dataKey="Female" fill={GENDER_COLORS.Female} radius={[4, 4, 0, 0]} maxBarSize={24} />
-                <Bar dataKey="Male" fill={GENDER_COLORS.Male} radius={[4, 4, 0, 0]} maxBarSize={24} />
+                <Tooltip content={<CustomTooltip labelFormatter={ageLabel} />} cursor={{ fill: "hsl(var(--muted))", opacity: 0.5 }} />
+                <Bar dataKey="Female" name="Women" fill={GENDER_COLORS.Female} radius={[4, 4, 0, 0]} maxBarSize={24} />
+                <Bar dataKey="Male" name="Men" fill={GENDER_COLORS.Male} radius={[4, 4, 0, 0]} maxBarSize={24} />
               </BarChart>
             </ResponsiveContainer>
           </ChartBox>
@@ -248,7 +250,7 @@ export const DashboardView = ({ summary, prevSummary, recent = [], trends, conte
               <li key={r._id} className="flex items-center gap-3 rounded-lg px-2 py-1.5 hover:bg-secondary/60">
                 <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: emotionColor(r.Emotion) }} />
                 <span className="font-mono text-xs text-muted-foreground">{(r.Time || "").slice(0, 5)}</span>
-                <span className="text-sm">{r.Gender}, {r.Age}</span>
+                <span className="text-sm">{personLabel(r.Gender, r.Age)}</span>
                 <span className="ml-auto text-xs text-muted-foreground">{r.Emotion}</span>
                 {r.Gi === "group" && <span className="rounded-full bg-secondary px-1.5 py-0.5 text-[10px] text-muted-foreground">group</span>}
               </li>

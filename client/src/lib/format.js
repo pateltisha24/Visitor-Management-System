@@ -79,6 +79,13 @@ export function ageLabel(bucket = "") {
   return `${lo}–${hi}`;
 }
 
+// "Female", "(60-80)" -> "Woman, over 60"; under 20s are a girl or a boy.
+export function personLabel(gender, age = "") {
+  const young = Number(age.replace(/[()]/g, "").split("-")[0]) < 20;
+  const word = { Female: young ? "Girl" : "Woman", Male: young ? "Boy" : "Man" }[gender] || gender || "Person";
+  return age ? `${word}, ${ageLabel(age)}` : word;
+}
+
 const about = (n) => (n >= 10 ? Math.round(n) : Math.round(n * 10) / 10);
 
 // Flag hours that deviate from the day's own baseline (z-score > 2). Returns

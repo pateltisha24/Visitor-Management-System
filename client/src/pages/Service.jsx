@@ -12,7 +12,7 @@ import { Card } from "../components/ui/card";
 import { cn } from "../lib/utils";
 import {
   lastDays, downloadCSV, fmt, addDays, dailySeries, monthlySeries,
-  footfallSeries, weeklyMatrix, visitorChange, detectAnomalies,
+  footfallSeries, weeklyMatrix, visitorChange, detectAnomalies, personLabel,
 } from "../lib/format";
 
 const POLL_MS = 10000;
@@ -25,12 +25,10 @@ const SINCE_KEY = "facesense.since";
 
 const readSince = () => { try { return localStorage.getItem(SINCE_KEY) || ""; } catch { return ""; } };
 const writeSince = (v) => { try { v ? localStorage.setItem(SINCE_KEY, v) : localStorage.removeItem(SINCE_KEY); } catch { /* storage blocked */ } };
-const GI_OPTS = [{ v: "", l: "All" }, { v: "individual", l: "Solo" }, { v: "group", l: "Groups" }];
-const GENDER_OPTS = [{ v: "", l: "All" }, { v: "Female", l: "Female" }, { v: "Male", l: "Male" }];
 
 export const Service = () => {
   const { user, isDemo, isOffline } = useAuth();
-  const [filters, setFilters] = useState({ gender: "", gi: "", camera: "" });
+  const [filters, setFilters] = useState({ camera: "" });
   const [summary, setSummary] = useState(null);
   const [prev, setPrev] = useState(null);
   const [recent, setRecent] = useState([]);
@@ -40,6 +38,7 @@ export const Service = () => {
   // last week, and the Traffic card's tabs give the longer view.
   const weekday = new Date().toLocaleDateString(undefined, { weekday: "long" });
   const compareLabel = `last ${weekday}`;
+  const compareShort = `last ${new Date().toLocaleDateString(undefined, { weekday: "short" })}`;
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [live, setLive] = useState(true);
@@ -66,8 +65,6 @@ export const Service = () => {
     const p = new URLSearchParams();
     if (range?.from) p.set("from", range.from);
     if (range?.to) p.set("to", range.to);
-    if (filters.gender) p.set("gender", filters.gender);
-    if (filters.gi) p.set("gi", filters.gi);
     if (filters.camera) p.set("camera", filters.camera);
     if (sample) p.set("sample", "true");   // request the seeded demo data
     else if (since) p.set("since", since);
@@ -162,9 +159,9 @@ export const Service = () => {
     let item = null;
     if (msg.type === "reading") {
       const r = msg.reading;
-      item = { kind: "visitor", cameraName: r.cameraName || "Camera", emotion: r.Emotion, text: `${r.Gender}, ${r.Age} · ${r.Emotion}` };
+      item = { kind: "visitor", cameraName: r.cameraName || "Camera", emotion: r.Emotion, text: `${personLabel(r.Gender, r.Age)} · ${r.Emotion}` };
     } else if (msg.type === "event" && msg.kind === "visitor_counted") {
-      item = { kind: "visitor", cameraName: msg.cameraName, emotion: msg.emotion, text: `${msg.gender}, ${msg.age} · ${msg.emotion}` };
+      item = { kind: "visitor", cameraName: msg.cameraName, emotion: msg.emotion, text: `${personLabel(msg.gender, msg.age)} · ${msg.emotion}` };
     } else if (msg.type === "event" && msg.kind === "returning_visitor") {
       item = { kind: "returning_visitor", cameraName: msg.cameraName, text: "Returning visitor, not double-counted" };
     }
@@ -234,9 +231,11 @@ export const Service = () => {
                 <FiRotateCcw /> Start fresh
               </Button>
             )}
-            <Button variant={live ? "default" : "outline"} size="sm" onClick={() => setLive((v) => !v)} disabled={sample} title={realtimeLive ? "Update as visitors arrive" : "Auto-refresh every 10s"}>
-              <FiActivity className={live && !sample ? "animate-pulse" : ""} /> {live && !sample ? "Live" : "Paused"}
-            </Button>
+            {!sample && (
+              <Button variant={live ? "default" : "outline"} size="sm" onClick={() => setLive((v) => !v)} title={realtimeLive ? "Update as visitors arrive" : "Auto-refresh every 10s"}>
+                <FiActivity className={live ? "animate-pulse" : ""} /> {live ? "Live" : "Paused"}
+              </Button>
+            )}
             <Button variant="outline" size="sm" onClick={fetchAll} title="Refresh now"><FiRefreshCw /></Button>
             <Button variant="outline" size="sm" onClick={exportCsv} title="Export every reading as CSV"><FiDownload /> Export</Button>
             <Button variant={sample ? "default" : "secondary"} size="sm" onClick={() => setSample((v) => !v)}>
@@ -245,14 +244,12 @@ export const Service = () => {
           </div>
         </div>
 
-        {/* Range + filters */}
+        {/* Day + camera filter */}
         <div className="mt-3 flex flex-wrap items-center gap-2">
           <span className="rounded-full border border-border bg-card px-3 py-1.5 text-sm font-medium">
             Today · {new Date().toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long" })}
           </span>
           <span className="mx-1 hidden h-5 w-px bg-border sm:block" />
-          <Segmented options={GENDER_OPTS} value={filters.gender} onChange={(v) => setFilters((f) => ({ ...f, gender: v }))} />
-          <Segmented options={GI_OPTS} value={filters.gi} onChange={(v) => setFilters((f) => ({ ...f, gi: v }))} />
           {cameraOptions.length > 0 && (
             <Segmented
               options={[{ v: "", l: "All cameras" }, ...cameraOptions.map((c) => ({ v: c.cameraId, l: c.cameraName }))]}
@@ -282,7 +279,7 @@ export const Service = () => {
           {loading ? (
             <SkeletonGrid />
           ) : hasData ? (
-            <DashboardView summary={summary} prevSummary={prev} recent={recent} trends={trends} context={{ compareLabel, visitorChange: change }} />
+            <DashboardView summary={summary} prevSummary={prev} recent={recent} trends={trends} context={{ compareLabel, compareShort, visitorChange: change }} />
           ) : (
             <EmptyState error={error} fresh={!!since && !sample} onSample={() => setSample(true)} />
           )}

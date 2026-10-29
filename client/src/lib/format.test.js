@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   lastDays, pctDelta, positivityIndex, hourTotals,
   buildInsights, detectAnomalies, fmt, parseDate, dailySeries, monthlySeries,
-  footfallSeries, weeklyMatrix, emotionShares, hourSpan, ageLabel, visitorChange,
+  footfallSeries, weeklyMatrix, emotionShares, hourSpan, ageLabel, personLabel, visitorChange,
 } from "./format";
 
 describe("pctDelta", () => {
@@ -69,6 +69,11 @@ describe("hourSpan / ageLabel", () => {
     expect(hourSpan("09")).toBe("9–10 am");
     expect(hourSpan("11")).toBe("11 am–12 pm");
     expect(hourSpan("23")).toBe("11 pm–12 am");
+  });
+  it("describes a visitor in words", () => {
+    expect(personLabel("Female", "(60-80)")).toBe("Woman, over 60");
+    expect(personLabel("Male", "(20-30)")).toBe("Man, 20–30");
+    expect(personLabel("Female", "(10-20)")).toBe("Girl, 10–20");
   });
   it("turns age buckets into words", () => {
     expect(ageLabel("(20-30)")).toBe("20–30");

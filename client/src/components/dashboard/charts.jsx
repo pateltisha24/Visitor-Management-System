@@ -5,7 +5,7 @@ import {
 } from "recharts";
 import { cn } from "../../lib/utils";
 import { ChartCard, ChartBox, CustomTooltip, Delta, num } from "./chartParts";
-import { hourSpan } from "../../lib/format";
+import { hourSpan, ageLabel } from "../../lib/format";
 import { emotionColor, axisProps } from "./theme";
 
 const hourLabel = (h) => `${h}:00`;
@@ -214,7 +214,7 @@ const AgeEmotionGrid = ({ matrix }) => {
         <div />
         {MATRIX_EMOTIONS.map((e) => <div key={e} className="truncate px-0.5 pb-1 text-center text-[11px] font-medium text-muted-foreground">{e}</div>)}
         {ages.map((age) => (
-          <LabeledRow key={age} label={age}>
+          <LabeledRow key={age} label={ageLabel(age)}>
             {MATRIX_EMOTIONS.map((e) => {
               const v = lookup[`${age}|${e}`] || 0;
               const intensity = max ? v / max : 0;
@@ -223,7 +223,7 @@ const AgeEmotionGrid = ({ matrix }) => {
                   <div className="grid h-full place-items-center rounded-md text-xs font-medium"
                        style={{ background: `hsl(var(--primary) / ${0.08 + intensity * 0.85})`,
                                 color: intensity > 0.55 ? "hsl(var(--primary-foreground))" : "hsl(var(--muted-foreground))" }}
-                       title={`${age} · ${e}: ${v}`}>
+                       title={`${ageLabel(age)} · ${e}: ${v}`}>
                     {v || ""}
                   </div>
                 </div>
